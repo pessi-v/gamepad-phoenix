@@ -20,6 +20,7 @@ WORKDIR /app
 RUN mix local.hex --force && mix local.rebar --force
 
 ENV MIX_ENV=prod
+ENV ERL_FLAGS="+JPperf true"
 
 # Fetch deps (esbuild/tailwind are fetched too since they have no only: :dev)
 COPY mix.exs mix.lock ./
@@ -28,6 +29,7 @@ RUN mix deps.get --only $MIX_ENV
 # Copy compile-time config before building assets/app
 RUN mkdir config
 COPY config/config.exs config/prod.exs config/
+RUN mix deps.compile
 
 # Install the esbuild and tailwind binaries used by mix assets.deploy
 RUN mix tailwind.install --if-missing && \
