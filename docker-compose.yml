@@ -1,0 +1,9 @@
+services:
+  gamepad:
+    image: gamepad:latest
+    container_name: gamepad
+    restart: unless-stopped
+    ports:
+      # Bind only to loopback — cloudflared on the host connects here.
+      - "127.0.0.1:4000:4000"
+    env_file: .env

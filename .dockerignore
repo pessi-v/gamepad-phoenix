@@ -1,0 +1,12 @@
+# Build artifacts
+_build/
+deps/
+.git/
+*.tar
+
+# Dev / test only
+.env
+node_modules/
+
+# Logs
+*.log
