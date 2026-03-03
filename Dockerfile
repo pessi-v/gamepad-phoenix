@@ -38,10 +38,10 @@ RUN mix tailwind.install --if-missing && \
 # Build and digest assets
 COPY priv priv
 COPY assets assets
+COPY lib lib
 RUN mix assets.deploy
 
 # Compile the app
-COPY lib lib
 RUN mix compile
 
 # Copy runtime config last so changes to it don't bust the compile cache
