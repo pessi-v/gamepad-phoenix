@@ -112,12 +112,21 @@ However, it might be making the lag a bit shorter, which might be due to the fol
 Disabling double-tap to zoom removes the need for browsers to delay the generation of click events when the user
 taps the screen. This is an alias for "pan-x pan-y pinch-zoom" (which, for compatibility, is itself still valid)." */
 
+/* Not needed because we added a JS rule in pad.js -> css wasn't working on ios */
+
 * {
-  -webkit-tap-highlight-color: transparent;
+  /* -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  touch-action: manipulation;
+  touch-action: manipulation; */
   /* touch-action: pan-y pan-x; */
 }
+
+/* Disables pull-to-refresh and overscroll glow effect */
+/* Not needed because we added a JS rule in pad.js -> css confused the vh and made the page scrollable */
+/* html,
+body {
+  overscroll-behavior-y: none;
+} */
 
 /* This file is for your main application CSS */
 
