@@ -128,6 +128,11 @@ body {
   overscroll-behavior-y: none;
 } */
 
+* {
+  -webkit-user-select: none; /* Disable selection */
+  -webkit-touch-callout: none; /* Disable magnifier on long-press */
+}
+
 /* This file is for your main application CSS */
 
 @layer components {

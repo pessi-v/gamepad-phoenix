@@ -1,7 +1,7 @@
 <div id="cs-data" data-session-id={@session_id} data-pad-url={@pad_url}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
-  <h1 class="text-3xl font-bold">Gamepad Controller</h1>
+  <%# <h1 class="text-3xl font-bold">Gamepad Controller</h1> %>
 
   <div id="game-area" class="hidden relative w-full max-w-2xl rounded-box overflow-hidden bg-base-200" style="height: 320px;">
     <div id="game-object" class="absolute w-12 h-12 rounded-full bg-primary"></div>
@@ -9,12 +9,12 @@
 
   <div id="qr-code" class="p-4 bg-white rounded-box shadow"></div>
 
-  <p class="text-sm text-base-content/70">
+  <%# <p class="text-sm text-base-content/70">
     Scan the QR code or open:
     <a id="pad-url" href="#" class="link link-primary break-all"></a>
-  </p>
+  </p> %>
 
-  <div class="mt-4">
+  <%# <div class="mt-4">
     <h2 class="text-lg font-semibold mb-3 text-center">Button State</h2>
     <div class="flex items-center justify-center gap-12">
       <div class="grid grid-cols-3 gap-2 w-48">
@@ -33,5 +33,5 @@
         <div class="state-btn" data-state="a">A</div>
       </div>
     </div>
-  </div>
+  </div> %>
 </div>

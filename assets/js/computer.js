@@ -23,8 +23,8 @@ if (!el) {
   // --- Game object ---
   const gameArea = document.getElementById("game-area")
   const gameObj = document.getElementById("game-object")
-  const SPEED = 3
-  const held = { up: false, down: false, left: false, right: false }
+  const SPEED = 5
+  const stick = { x: 0, y: 0 }
   let objX = 0, objY = 0
   let scale = 1
   let animFrame = null
@@ -41,18 +41,17 @@ if (!el) {
   function despawnObject() {
     stopLoop()
     gameArea.classList.add("hidden")
-    held.up = held.down = held.left = held.right = false
+    stick.x = stick.y = 0
     scale = 1
+    gameObj.style.removeProperty("background-color")
   }
 
   function startLoop() {
     if (animFrame) return
     function loop() {
       const half = gameObj.offsetWidth / 2
-      if (held.up)    objY = Math.max(half, objY - SPEED)
-      if (held.down)  objY = Math.min(gameArea.clientHeight - half, objY + SPEED)
-      if (held.left)  objX = Math.max(half, objX - SPEED)
-      if (held.right) objX = Math.min(gameArea.clientWidth - half, objX + SPEED)
+      objX = Math.max(half, Math.min(gameArea.clientWidth - half,  objX + stick.x * SPEED))
+      objY = Math.max(half, Math.min(gameArea.clientHeight - half, objY + stick.y * SPEED))
       gameObj.style.left = objX + "px"
       gameObj.style.top = objY + "px"
       gameObj.style.transform = `translate(-50%, -50%) scale(${scale})`
@@ -74,26 +73,24 @@ if (!el) {
   channel.on("pad_connected", () => spawnObject())
   channel.on("pad_disconnected", () => despawnObject())
 
+  channel.on("stick", ({ x, y }) => {
+    stick.x = x
+    stick.y = y
+  })
+
   channel.on("button_down", ({ button }) => {
     const btn = document.querySelector(`[data-state="${button}"]`)
     if (btn) btn.classList.add("btn-active")
 
-    if (button in held) held[button] = true
-
-    if (button === "a") {
-      scale = 1.6
-      setTimeout(() => { scale = 1 }, 150)
-    }
-    if (button === "b") {
-      gameObj.style.setProperty("background-color", "var(--color-error)")
-      setTimeout(() => gameObj.style.removeProperty("background-color"), 200)
-    }
+    if (button === "a") scale = 1.6
+    if (button === "b") gameObj.style.setProperty("background-color", "var(--color-error)")
   })
 
   channel.on("button_up", ({ button }) => {
     const btn = document.querySelector(`[data-state="${button}"]`)
     if (btn) btn.classList.remove("btn-active")
-    if (button in held) held[button] = false
+    if (button === "a") scale = 1
+    if (button === "b") gameObj.style.removeProperty("background-color")
   })
 
   channel

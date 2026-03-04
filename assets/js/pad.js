@@ -44,39 +44,103 @@ if (!el) {
 
   window.addEventListener("beforeunload", () => channel.leave());
 
-  function onDown(button) {
-    channel.push("button_down", { button });
+  // --- Thumbstick ---
+  const base = document.getElementById("thumbstick-base");
+  const nub = document.getElementById("thumbstick-nub");
+
+  function stickMove(dx, dy) {
+    const baseRadius = base.offsetWidth / 2;
+    const nubRadius = nub.offsetWidth / 2;
+    const maxDist = baseRadius - nubRadius;
+
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > maxDist) {
+      dx = (dx / dist) * maxDist;
+      dy = (dy / dist) * maxDist;
+    }
+
+    nub.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    channel.push("stick", { x: dx / maxDist, y: dy / maxDist });
   }
 
-  function onUp(button) {
-    channel.push("button_up", { button });
+  function stickRelease() {
+    nub.style.transform = "translate(-50%, -50%)";
+    channel.push("stick", { x: 0, y: 0 });
   }
 
+  function offsetFromCenter(clientX, clientY) {
+    const rect = base.getBoundingClientRect();
+    return {
+      dx: clientX - (rect.left + rect.width / 2),
+      dy: clientY - (rect.top + rect.height / 2),
+    };
+  }
+
+  // Touch
+  let activeTouchId = null;
+
+  base.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    if (activeTouchId !== null) return;
+    const t = e.changedTouches[0];
+    activeTouchId = t.identifier;
+    const { dx, dy } = offsetFromCenter(t.clientX, t.clientY);
+    stickMove(dx, dy);
+  }, { passive: false });
+
+  base.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    const t = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId);
+    if (!t) return;
+    const { dx, dy } = offsetFromCenter(t.clientX, t.clientY);
+    stickMove(dx, dy);
+  }, { passive: false });
+
+  base.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    const t = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId);
+    if (!t) return;
+    activeTouchId = null;
+    stickRelease();
+  }, { passive: false });
+
+  // Mouse (desktop testing)
+  let mouseDragging = false;
+
+  base.addEventListener("mousedown", (e) => {
+    mouseDragging = true;
+    const { dx, dy } = offsetFromCenter(e.clientX, e.clientY);
+    stickMove(dx, dy);
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!mouseDragging) return;
+    const { dx, dy } = offsetFromCenter(e.clientX, e.clientY);
+    stickMove(dx, dy);
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!mouseDragging) return;
+    mouseDragging = false;
+    stickRelease();
+  });
+
+  // --- A / B buttons ---
   document.querySelectorAll("[data-button]").forEach((btn) => {
     const button = btn.dataset.button;
 
-    // Touch events (mobile)
-    btn.addEventListener(
-      "touchstart",
-      (e) => {
-        e.preventDefault();
-        onDown(button);
-      },
-      { passive: false },
-    );
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      channel.push("button_down", { button });
+    }, { passive: false });
 
-    btn.addEventListener(
-      "touchend",
-      (e) => {
-        e.preventDefault();
-        onUp(button);
-      },
-      { passive: false },
-    );
+    btn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      channel.push("button_up", { button });
+    }, { passive: false });
 
-    // Mouse events (desktop testing)
-    btn.addEventListener("mousedown", () => onDown(button));
-    btn.addEventListener("mouseup", () => onUp(button));
-    btn.addEventListener("mouseleave", () => onUp(button));
+    btn.addEventListener("mousedown", () => channel.push("button_down", { button }));
+    btn.addEventListener("mouseup", () => channel.push("button_up", { button }));
+    btn.addEventListener("mouseleave", () => channel.push("button_up", { button }));
   });
 }

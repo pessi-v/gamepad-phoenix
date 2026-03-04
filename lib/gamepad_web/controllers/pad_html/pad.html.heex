@@ -1,22 +1,12 @@
 <div id="ps-data" data-session-id={@session_id}></div>
 
 <div class="pad-root min-h-screen max-h-screen flex flex-col items-center justify-center select-none">
-  <%# <h1 class="text-2xl font-bold mb-8">Gamepad</h1> %>
-
   <div class="w-full flex items-center justify-between gap-20 px-17">
-    <!-- D-pad (left side) -->
-    <div class="grid grid-cols-3 gap-2 w-48">
-      <div></div>
-      <button class="pad-btn" data-button="up">▲</button>
-      <div></div>
-
-      <button class="pad-btn" data-button="left">◀</button>
-      <div class="flex items-center justify-center w-14 h-14 rounded-full invisible bg-base-300 mx-auto"></div>
-      <button class="pad-btn" data-button="right">▶</button>
-
-      <div></div>
-      <button class="pad-btn" data-button="down">▼</button>
-      <div></div>
+    <!-- Thumbstick (left side) -->
+    <div id="thumbstick-base" class="relative w-44 h-44 rounded-full bg-base-300">
+      <div id="thumbstick-nub"
+           class="absolute w-16 h-16 rounded-full bg-base-content/40 pointer-events-none"
+           style="top: 50%; left: 50%; transform: translate(-50%, -50%)"></div>
     </div>
 
     <!-- A / B buttons (right side) -->

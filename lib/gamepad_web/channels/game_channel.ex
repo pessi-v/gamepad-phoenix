@@ -10,6 +10,11 @@ defmodule GamepadWeb.GameChannel do
     {:noreply, assign(socket, :role, :pad)}
   end
 
+  def handle_in("stick", %{"x" => x, "y" => y}, socket) do
+    broadcast!(socket, "stick", %{"x" => x, "y" => y})
+    {:noreply, socket}
+  end
+
   def handle_in("button_down", %{"button" => button}, socket) do
     broadcast!(socket, "button_down", %{"button" => button})
     {:noreply, socket}
