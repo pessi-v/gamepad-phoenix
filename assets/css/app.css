@@ -105,6 +105,20 @@
   display: contents;
 }
 
+/* This supposedly prevents double-click zoom (relevant for the gamepad in mobile), but doesn't seem to work.
+However, it might be making the lag a bit shorter, which might be due to the following (from mozilla.org docs):
+
+"manipulation: Enable panning and pinch zoom gestures, but disable additional non-standard gestures such as double-tap to zoom.
+Disabling double-tap to zoom removes the need for browsers to delay the generation of click events when the user
+taps the screen. This is an alias for "pan-x pan-y pinch-zoom" (which, for compatibility, is itself still valid)." */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  /* touch-action: pan-y pan-x; */
+}
+
 /* This file is for your main application CSS */
 
 @layer components {

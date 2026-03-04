@@ -1,5 +1,13 @@
 import { Socket } from "phoenix"
 
+// Prevent double-tap zoom on iOS (touch-action: manipulation is not enough)
+let lastTouchEnd = 0
+document.addEventListener("touchend", (e) => {
+  const now = Date.now()
+  if (now - lastTouchEnd < 300) e.preventDefault()
+  lastTouchEnd = now
+}, { passive: false })
+
 const el = document.getElementById("ps-data")
 if (!el) {
   // Not on the PS page
