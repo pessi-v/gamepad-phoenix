@@ -100,7 +100,10 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 /* Make LiveView wrapper divs transparent for layout */
-[data-phx-session], [data-phx-teleported-src] { display: contents }
+[data-phx-session],
+[data-phx-teleported-src] {
+  display: contents;
+}
 
 /* This file is for your main application CSS */
 
@@ -122,5 +125,18 @@
 
   .state-btn.btn-active {
     @apply bg-green-500 text-white;
+  }
+}
+
+@media (orientation: portrait) {
+  .pad-root {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 100dvh;
+    height: 100dvw;
+    min-height: unset;
+    max-height: unset;
+    transform: translate(-50%, -50%) rotate(90deg);
   }
 }

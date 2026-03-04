@@ -1,26 +1,28 @@
 <div id="ps-data" data-session-id={@session_id}></div>
 
-<div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6 select-none">
-  <h1 class="text-2xl font-bold">Gamepad</h1>
+<div class="pad-root min-h-screen max-h-screen flex flex-col items-center justify-center select-none">
+  <%# <h1 class="text-2xl font-bold mb-8">Gamepad</h1> %>
 
-  <%!-- D-pad --%>
-  <div class="grid grid-cols-3 gap-2 w-48">
-    <div></div>
-    <button class="pad-btn" data-button="up">▲</button>
-    <div></div>
+  <div class="w-full flex items-center justify-between gap-20 px-17">
+    <!-- D-pad (left side) -->
+    <div class="grid grid-cols-3 gap-2 w-48">
+      <div></div>
+      <button class="pad-btn" data-button="up">▲</button>
+      <div></div>
 
-    <button class="pad-btn" data-button="left">◀</button>
-    <div class="flex items-center justify-center w-14 h-14 rounded-full bg-base-300 mx-auto"></div>
-    <button class="pad-btn" data-button="right">▶</button>
+      <button class="pad-btn" data-button="left">◀</button>
+      <div class="flex items-center justify-center w-14 h-14 rounded-full invisible bg-base-300 mx-auto"></div>
+      <button class="pad-btn" data-button="right">▶</button>
 
-    <div></div>
-    <button class="pad-btn" data-button="down">▼</button>
-    <div></div>
-  </div>
+      <div></div>
+      <button class="pad-btn" data-button="down">▼</button>
+      <div></div>
+    </div>
 
-  <%!-- A / B buttons --%>
-  <div class="flex gap-6">
-    <button class="action-btn bg-red-500 text-white" data-button="b">B</button>
-    <button class="action-btn bg-green-500 text-white" data-button="a">A</button>
+    <!-- A / B buttons (right side) -->
+    <div class="flex gap-6 h-[184px]">
+      <button class="self-end action-btn bg-red-500 text-white mb-10" data-button="b">B</button>
+      <button class="self-start action-btn bg-green-500 text-white mt-10" data-button="a">A</button>
+    </div>
   </div>
 </div>

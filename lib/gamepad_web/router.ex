@@ -21,6 +21,14 @@ defmodule GamepadWeb.Router do
     get "/pad/:session_id", PadController, :pad
   end
 
+  if Application.compile_env(:gamepad, :dev_routes) do
+    scope "/", GamepadWeb do
+      pipe_through :browser
+
+      get "/pad", PadController, :pad_preview
+    end
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", GamepadWeb do
   #   pipe_through :api
