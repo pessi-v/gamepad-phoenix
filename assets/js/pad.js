@@ -36,8 +36,13 @@ if (!el) {
 
   channel
     .join()
-    .receive("ok", () => console.log("[PS] joined game:" + sessionId))
+    .receive("ok", () => {
+      console.log("[PS] joined game:" + sessionId);
+      channel.push("pad_join", {});
+    })
     .receive("error", (err) => console.error("[PS] join error", err));
+
+  window.addEventListener("beforeunload", () => channel.leave());
 
   function onDown(button) {
     channel.push("button_down", { button });
