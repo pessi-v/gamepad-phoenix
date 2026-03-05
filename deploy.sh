@@ -22,6 +22,9 @@ scp docker-compose.yml "$REMOTE:$REMOTE_PATH/docker-compose.yml"
 echo "==> Loading image on remote..."
 ssh "$REMOTE" "docker load -i $REMOTE_PATH/gamepad.tar && rm $REMOTE_PATH/gamepad.tar"
 
+echo "==> Starting up new image..."
+ssh "$REMOTE" "cd $REMOTE_PATH && docker compose up -d"
+
 echo ""
 echo "==> Done. Next steps on the homeserver:"
 echo ""
