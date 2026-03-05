@@ -7,7 +7,12 @@
       <div id="game-object" class="absolute w-12 h-12 rounded-full bg-primary"></div>
     </div>
     <div id="sensor-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
-      <div id="sensor-ball" class="absolute w-12 h-12 rounded-full bg-secondary"></div>
+      <canvas id="track-canvas" class="absolute inset-0 w-full h-full" style="pointer-events:none;z-index:0"></canvas>
+      <div id="sensor-ball" class="absolute w-12 h-12 rounded-full bg-secondary" style="z-index:2"></div>
+      <div id="track-hud" class="hidden absolute top-2 left-2 text-sm font-mono font-bold" style="z-index:10">
+        <div class="rounded px-2 py-0.5 mb-1" style="background:rgba(0,0,0,0.45);color:white">Score: <span id="track-score">0</span></div>
+        <div class="rounded px-2 py-0.5" style="background:rgba(0,0,0,0.45);color:white">Acc: <span id="track-accuracy">--</span></div>
+      </div>
     </div>
   </div>
 
