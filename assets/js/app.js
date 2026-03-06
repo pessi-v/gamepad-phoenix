@@ -10,6 +10,7 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // Gamepad: computer (QR + receive) and phone pad (send)
 import "./computer"
 import "./pad"
+import "./sensor"
 
 // Enable live_reload dev tools (server log streaming, click-to-editor)
 if (process.env.NODE_ENV === "development") {

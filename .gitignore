@@ -36,3 +36,7 @@ npm-debug.log
 /assets/node_modules/
 
 .env.example
+
+# TLS certificates and private keys — never commit these
+/priv/cert/
+config/dev.exs

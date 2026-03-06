@@ -70,10 +70,18 @@ if (!el) {
 
   function offsetFromCenter(clientX, clientY) {
     const rect = base.getBoundingClientRect();
-    return {
-      dx: clientX - (rect.left + rect.width / 2),
-      dy: clientY - (rect.top + rect.height / 2),
-    };
+    let dx = clientX - (rect.left + rect.width / 2);
+    let dy = clientY - (rect.top + rect.height / 2);
+
+    // In portrait mode, .pad-root is CSS-rotated 90°CW so the UI appears
+    // landscape. Touch coords are in viewport (portrait) space, but
+    // translate(dx, dy) on the nub applies in the element's local (rotated)
+    // space. Convert viewport offsets → local coords via the inverse rotation.
+    if (window.matchMedia("(orientation: portrait)").matches) {
+      [dx, dy] = [dy, -dx];
+    }
+
+    return { dx, dy };
   }
 
   // Touch

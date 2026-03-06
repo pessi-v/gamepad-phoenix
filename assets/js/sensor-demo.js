@@ -1,94 +1,4 @@
-import { Socket } from "phoenix"
-
-const el = document.getElementById("cs-data")
-if (!el) {
-  // Not on the CS page
-} else {
-  const sessionId  = el.dataset.sessionId
-  const padUrl     = el.dataset.padUrl
-  const sensorUrl  = el.dataset.sensorUrl
-
-  // QR codes
-  const qrEl = document.getElementById("qr-code")
-  if (qrEl && typeof QRCode !== "undefined") {
-    new QRCode(qrEl, { text: padUrl, width: 200, height: 200 })
-  }
-  const sensorQrEl = document.getElementById("sensor-qr")
-  if (sensorQrEl && typeof QRCode !== "undefined") {
-    new QRCode(sensorQrEl, { text: sensorUrl, width: 200, height: 200 })
-  }
-
-  const socket = new Socket("/socket", {})
-  socket.connect()
-
-  // --- Gamepad: thumbstick-driven object ---
-  const gameArea = document.getElementById("game-area")
-  const gameObj  = document.getElementById("game-object")
-  const SPEED    = 5
-  const stick    = { x: 0, y: 0 }
-  let objX = 0, objY = 0, scale = 1, animFrame = null
-
-  function spawnObject() {
-    gameArea.classList.remove("hidden")
-    requestAnimationFrame(() => {
-      objX = gameArea.clientWidth / 2
-      objY = gameArea.clientHeight / 2
-      startLoop()
-    })
-  }
-
-  function despawnObject() {
-    stopLoop()
-    gameArea.classList.add("hidden")
-    stick.x = stick.y = 0
-    scale = 1
-    gameObj.style.removeProperty("background-color")
-  }
-
-  function startLoop() {
-    if (animFrame) return
-    function loop() {
-      const half = gameObj.offsetWidth / 2
-      objX = Math.max(half, Math.min(gameArea.clientWidth  - half, objX + stick.x * SPEED))
-      objY = Math.max(half, Math.min(gameArea.clientHeight - half, objY + stick.y * SPEED))
-      gameObj.style.left      = objX + "px"
-      gameObj.style.top       = objY + "px"
-      gameObj.style.transform = `translate(-50%, -50%) scale(${scale})`
-      animFrame = requestAnimationFrame(loop)
-    }
-    animFrame = requestAnimationFrame(loop)
-  }
-
-  function stopLoop() {
-    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null }
-  }
-
-  const gameChannel = socket.channel(`game:${sessionId}`, {})
-
-  gameChannel.on("pad_connected",    () => spawnObject())
-  gameChannel.on("pad_disconnected", () => despawnObject())
-  gameChannel.on("stick", ({ x, y }) => { stick.x = x; stick.y = y })
-
-  gameChannel.on("button_down", ({ button }) => {
-    const btn = document.querySelector(`[data-state="${button}"]`)
-    if (btn) btn.classList.add("btn-active")
-    if (button === "a") scale = 1.6
-    if (button === "b") gameObj.style.setProperty("background-color", "var(--color-error)")
-  })
-
-  gameChannel.on("button_up", ({ button }) => {
-    const btn = document.querySelector(`[data-state="${button}"]`)
-    if (btn) btn.classList.remove("btn-active")
-    if (button === "a") scale = 1
-    if (button === "b") gameObj.style.removeProperty("background-color")
-  })
-
-  gameChannel
-    .join()
-    .receive("ok",   () => console.log("[CS] joined game:" + sessionId))
-    .receive("error", (err) => console.error("[CS] game join error", err))
-
-  // --- Sensor: accelerometer-driven physics ball with track game ---
+export function init(channel) {
   const sensorArea      = document.getElementById("sensor-area")
   const sensorBall      = document.getElementById("sensor-ball")
   const trackCanvas     = document.getElementById("track-canvas")
@@ -99,21 +9,18 @@ if (!el) {
   const ACCEL    = 0.4
   const FRICTION = 0.92
   const BOUNCE   = 0.5
-  const CORRIDOR = 40   // half-width of track corridor in px
-  const CP_RADIUS = 30  // checkpoint trigger radius in px
+  const CORRIDOR = 40
+  const CP_RADIUS = 30
 
-  // Tracks: normalized [x, y] waypoints in [0..1] × [0..1]
   const TRACKS = [
-    [[0.10, 0.50], [0.30, 0.20], [0.50, 0.50], [0.70, 0.80], [0.90, 0.50]], // S-curve
-    [[0.15, 0.20], [0.15, 0.75], [0.50, 0.75], [0.85, 0.75], [0.85, 0.20]], // U-shape
-    [[0.10, 0.20], [0.90, 0.20], [0.10, 0.80], [0.90, 0.80]],               // Z-shape
-    [[0.10, 0.50], [0.10, 0.15], [0.50, 0.15], [0.90, 0.15], [0.90, 0.85], [0.50, 0.85]], // L+
+    [[0.10, 0.50], [0.30, 0.20], [0.50, 0.50], [0.70, 0.80], [0.90, 0.50]],
+    [[0.15, 0.20], [0.15, 0.75], [0.50, 0.75], [0.85, 0.75], [0.85, 0.20]],
+    [[0.10, 0.20], [0.90, 0.20], [0.10, 0.80], [0.90, 0.80]],
+    [[0.10, 0.50], [0.10, 0.15], [0.50, 0.15], [0.90, 0.15], [0.90, 0.85], [0.50, 0.85]],
   ]
 
   let ballX = 0, ballY = 0, velX = 0, velY = 0
   let accelX = 0, accelY = 0, sensorFrame = null
-
-  // Track game state
   let trackIdx = 0, nextCp = 1, onTrackF = 0, totalF = 0, trackScore = 0, trackActive = false
 
   function pixelWaypoints() {
@@ -145,36 +52,33 @@ if (!el) {
       wps.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y))
     }
 
-    // Corridor fill
     ctx.lineWidth = CORRIDOR * 2
     ctx.lineCap = "round"; ctx.lineJoin = "round"
     ctx.strokeStyle = "rgba(99,102,241,0.18)"
     drawPath(); ctx.stroke()
 
-    // Dashed center line
     ctx.lineWidth = 1.5
     ctx.strokeStyle = "rgba(99,102,241,0.55)"
     ctx.setLineDash([6, 10])
     drawPath(); ctx.stroke()
     ctx.setLineDash([])
 
-    // Waypoint dots
     wps.forEach(([x, y], i) => {
       const isEnd = i === wps.length - 1
       ctx.beginPath()
       ctx.arc(x, y, isEnd ? 12 : 8, 0, Math.PI * 2)
       if (i === 0) {
-        ctx.fillStyle = "#facc15"                           // start: yellow
+        ctx.fillStyle = "#facc15"
       } else if (i < ncp) {
-        ctx.fillStyle = "#22c55e"                           // passed: green
+        ctx.fillStyle = "#22c55e"
       } else if (i === ncp && isEnd) {
-        ctx.fillStyle = "#ef4444"                           // end & next: red
+        ctx.fillStyle = "#ef4444"
       } else if (i === ncp) {
-        ctx.fillStyle = "#ffffff"                           // next target: white
+        ctx.fillStyle = "#ffffff"
       } else if (isEnd) {
-        ctx.fillStyle = "rgba(239,68,68,0.45)"              // end & future: dim red
+        ctx.fillStyle = "rgba(239,68,68,0.45)"
       } else {
-        ctx.fillStyle = "rgba(255,255,255,0.3)"             // future: dim
+        ctx.fillStyle = "rgba(255,255,255,0.3)"
       }
       ctx.fill()
     })
@@ -194,7 +98,7 @@ if (!el) {
     const pct = totalF > 0 ? Math.round(onTrackF / totalF * 100) : 0
     const pass = pct >= 90
     if (pass) { trackScore++; trackScoreEl.textContent = trackScore }
-    renderTrack(pixelWaypoints(), TRACKS[trackIdx].length)  // show all as passed
+    renderTrack(pixelWaypoints(), TRACKS[trackIdx].length)
     trackAccuracyEl.textContent = `${pct}% ${pass ? "✓" : "✗"}`
     setTimeout(() => {
       trackIdx = (trackIdx + 1) % TRACKS.length
@@ -237,7 +141,6 @@ if (!el) {
       sensorBall.style.top       = ballY + "px"
       sensorBall.style.transform = "translate(-50%, -50%)"
 
-      // Track game logic (only count when ball is moving)
       if (trackActive && (Math.abs(velX) + Math.abs(velY)) > 0.05) {
         const wps = pixelWaypoints()
         totalF++
@@ -261,14 +164,7 @@ if (!el) {
     if (sensorFrame) { cancelAnimationFrame(sensorFrame); sensorFrame = null }
   }
 
-  const sensorChannel = socket.channel(`sensor:${sessionId}`, {})
-
-  sensorChannel.on("sensor_connected",    () => spawnBall())
-  sensorChannel.on("sensor_disconnected", () => despawnBall())
-  sensorChannel.on("accel", ({ x, y }) => { accelX = x; accelY = y })
-
-  sensorChannel
-    .join()
-    .receive("ok",   () => console.log("[CS] joined sensor:" + sessionId))
-    .receive("error", (err) => console.error("[CS] sensor join error", err))
+  channel.on("sensor_connected",    () => spawnBall())
+  channel.on("sensor_disconnected", () => despawnBall())
+  channel.on("accel", ({ x, y }) => { accelX = x; accelY = y })
 }
