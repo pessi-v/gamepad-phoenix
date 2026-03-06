@@ -1,4 +1,4 @@
-<div id="cs-data" data-session-id={@session_id} data-pad-url={@pad_url} data-sensor-url={@sensor_url}></div>
+<div id="cs-data" data-session-id={@session_id} data-pad-url={@pad_url} data-sensor-url={@sensor_url} data-draw-url={@draw_url}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
 
@@ -14,6 +14,9 @@
         <div class="rounded px-2 py-0.5" style="background:rgba(0,0,0,0.45);color:white">Acc: <span id="track-accuracy">--</span></div>
       </div>
     </div>
+    <div id="draw-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
+      <canvas id="draw-canvas-desktop" class="absolute inset-0 w-full h-full"></canvas>
+    </div>
   </div>
 
   <div class="flex gap-8">
@@ -24,6 +27,10 @@
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Motion</p>
       <div id="sensor-qr" class="p-4 bg-white rounded-box shadow"></div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Draw</p>
+      <div id="draw-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
   </div>
 
