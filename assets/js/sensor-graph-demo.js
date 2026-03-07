@@ -14,21 +14,21 @@ export function init(channel) {
       label:        "Orientation (°)",
       keys:         ["beta", "gamma", "alpha"],
       seriesLabels: ["β", "γ", "α"],
-      range:        180,
+      min: -180, max: 360,
       colors:       ["#f87171", "#4ade80", "#60a5fa"],
     },
     {
       label:        "Acceleration (m/s²)",
       keys:         ["ax", "ay", "az"],
       seriesLabels: ["x", "y", "z"],
-      range:        20,
+      min: -20, max: 20,
       colors:       ["#f87171", "#4ade80", "#60a5fa"],
     },
     {
       label:        "Rotation (°/s)",
       keys:         ["rx", "ry", "rz"],
       seriesLabels: ["x", "y", "z"],
-      range:        360,
+      min: -360, max: 360,
       colors:       ["#f87171", "#4ade80", "#60a5fa"],
     },
   ]
@@ -63,7 +63,8 @@ export function init(channel) {
     ROWS.forEach((row, ri) => {
       const rowTop  = ri * (rowH + ROW_GAP)
       const plotTop = rowTop + LABEL_H
-      const mid     = plotTop + plotH / 2
+      const span   = row.max - row.min
+      const zeroY  = plotTop + plotH * (1 - (0 - row.min) / span)
 
       ctx.fillStyle = "rgba(255,255,255,0.04)"
       ctx.fillRect(LEFT, plotTop, plotW, plotH)
@@ -72,16 +73,16 @@ export function init(channel) {
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
-      ctx.moveTo(LEFT, mid)
-      ctx.lineTo(LEFT + plotW, mid)
+      ctx.moveTo(LEFT, zeroY)
+      ctx.lineTo(LEFT + plotW, zeroY)
       ctx.stroke()
       ctx.setLineDash([])
 
       ctx.fillStyle = "rgba(255,255,255,0.3)"
       ctx.font = "9px monospace"
       ctx.textAlign = "right"
-      ctx.fillText(`+${row.range}`, LEFT - 2, plotTop + 8)
-      ctx.fillText(`-${row.range}`, LEFT - 2, plotTop + plotH)
+      ctx.fillText(row.max, LEFT - 2, plotTop + 8)
+      ctx.fillText(row.min, LEFT - 2, plotTop + plotH)
       ctx.textAlign = "left"
 
       ctx.fillStyle = "rgba(255,255,255,0.55)"
@@ -104,7 +105,7 @@ export function init(channel) {
         ctx.beginPath()
         vals.forEach((v, i) => {
           const x = LEFT + (i / (MAX_POINTS - 1)) * plotW
-          const y = mid - Math.max(-1, Math.min(1, v / row.range)) * (plotH / 2)
+          const y = plotTop + plotH * (1 - Math.max(0, Math.min(1, (v - row.min) / span)))
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
         })
         ctx.stroke()
