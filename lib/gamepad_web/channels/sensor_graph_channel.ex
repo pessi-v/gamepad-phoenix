@@ -21,7 +21,9 @@ defmodule GamepadWeb.SensorGraphChannel do
 
   @impl true
   def handle_in("sensor_graph_join", _payload, socket) do
-    SensorGraphState.set_connected(socket.assigns.session_id)
+    require Logger
+    Logger.info("[SensorGraph] sensor_graph_join received for #{socket.assigns.session_id}")
+    SensorGraphState.set_connected(socket.assigns.session_id, self())
     broadcast!(socket, "sensor_graph_connected", %{})
     {:noreply, assign(socket, :role, :sensor_graph)}
   end
@@ -40,8 +42,9 @@ defmodule GamepadWeb.SensorGraphChannel do
 
   @impl true
   def terminate(_reason, %{assigns: %{role: :sensor_graph}} = socket) do
-    SensorGraphState.set_disconnected(socket.assigns.session_id)
-    broadcast!(socket, "sensor_graph_disconnected", %{})
+    if SensorGraphState.disconnect_if_active(socket.assigns.session_id, self()) do
+      broadcast!(socket, "sensor_graph_disconnected", %{})
+    end
     :ok
   end
 

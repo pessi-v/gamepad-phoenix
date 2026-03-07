@@ -256,10 +256,12 @@ export function init(channel) {
   // ── Loop ──────────────────────────────────────────────────────────────────
 
   let rafId = null;
+  let fadingOut = false;
 
   fishCanvas.style.transition = "opacity 1.5s ease";
 
   function startLoop() {
+    fadingOut = false; // cancel any in-progress fade-out
     if (rafId) return;
     fishCanvas.style.display = "block";
     fishCanvas.style.opacity = "0";
@@ -274,6 +276,7 @@ export function init(channel) {
   }
 
   function stopLoop() {
+    fadingOut = true;
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = null;
@@ -282,7 +285,7 @@ export function init(channel) {
     fishCanvas.addEventListener(
       "transitionend",
       () => {
-        fishCanvas.style.display = "none";
+        if (fadingOut) fishCanvas.style.display = "none";
       },
       { once: true },
     );

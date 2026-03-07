@@ -17,8 +17,7 @@ if (!el) {
 
   const waitingEl  = document.getElementById("sensor-graph-waiting")
   const activeEl   = document.getElementById("sensor-graph-active")
-  const enableBtn  = document.getElementById("sensor-graph-enable-btn")
-  const statusText = waitingEl.querySelector("p")
+  const statusText = document.getElementById("sensor-graph-status")
 
   function setError(msg) {
     console.error("[SensorGraph]", msg)
@@ -37,6 +36,15 @@ if (!el) {
     if (document.visibilityState === "visible" && wakeLock === null) requestWakeLock()
   })
 
+  let started = false
+
+  // bfcache: when the page is restored from back-forward cache, JS state is
+  // preserved (including started=true), so reset it to allow sensor_graph_join
+  // to be sent again on the next sensor event.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) started = false
+  })
+
   function startSensors() {
     if (typeof DeviceOrientationEvent === "undefined") {
       setError("Motion sensors not supported on this device")
@@ -48,7 +56,6 @@ if (!el) {
       DeviceMotionEvent.requestPermission()
     }
 
-    let started = false
     const timeout = setTimeout(() => {
       if (!started) setError("No motion data received. On Firefox iOS: Settings → Firefox → enable Motion & Orientation Access")
     }, 3000)
@@ -83,5 +90,15 @@ if (!el) {
     })
   }
 
-  enableBtn.addEventListener("click", startSensors)
+  const needsGesture = typeof DeviceMotionEvent !== "undefined" &&
+                       typeof DeviceMotionEvent.requestPermission === "function"
+
+  if (needsGesture) {
+    // iOS: requires explicit user gesture for permission
+    waitingEl.addEventListener("click", startSensors, { once: true })
+  } else {
+    // Android / desktop: start immediately
+    statusText.textContent = "Starting…"
+    startSensors()
+  }
 }
