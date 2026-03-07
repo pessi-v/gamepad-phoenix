@@ -131,12 +131,11 @@ export function init(channel) {
   const orientation = { alpha: 0, beta: 0, gamma: 0 }
 
   // Fish position physics (world units)
-  // Uses accelerationIncludingGravity so tilting the phone moves the fish
-  // reliably on iOS and Android (e.acceleration is often null on iOS).
-  let posX = 0, posY = 0, velX = 0, velY = 0
-  let latestGax = 0, latestGay = 0
-  const ACCEL    = 0.0001  // tuned for ~9.8 m/s² gravity range
-  const FRICTION = 0.95
+  let posX = 0, posY = 0, posZ = 0
+  let velX = 0, velY = 0, velZ = 0
+  let latestAx = 0, latestAy = 0, latestAz = 0
+  const ACCEL    = 0.001
+  const FRICTION = 0.93
 
   const loader = new GLTFLoader()
   loader.load("/assets/Goldfish.glb", (gltf) => {
@@ -153,7 +152,8 @@ export function init(channel) {
   })
 
   function frustumHalfSize() {
-    const halfH = camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+    const depth = camera.position.z - posZ
+    const halfH = depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
     return { halfH, halfW: halfH * camera.aspect }
   }
 
@@ -172,14 +172,19 @@ export function init(channel) {
     resizeFish()
 
     if (fish) {
-      // Integrate accelerationIncludingGravity → velocity → position
-      // gax/gay are ~0 when flat, up to ±9.8 m/s² when tilted fully sideways
-      velX = (velX + latestGax * ACCEL) * FRICTION
-      velY = (velY + latestGay * ACCEL) * FRICTION
+      // Integrate acceleration → velocity → position in all three axes
+      velX = (velX + latestAx * ACCEL) * FRICTION
+      velY = (velY + latestAy * ACCEL) * FRICTION
+      velZ = (velZ + latestAz * ACCEL) * FRICTION
       posX += velX
       posY += velY
+      posZ += velZ
 
-      // Soft bounds: spring back when past 85% of the frustum edge
+      // Z bounds: keep fish between z=-4 (far) and z=3 (close, still in front of camera at z=5)
+      if (posZ < -4) { posZ = -4; velZ =  Math.abs(velZ) * 0.4 }
+      if (posZ >  3) { posZ =  3; velZ = -Math.abs(velZ) * 0.4 }
+
+      // XY bounds scale with depth so the fish stays in the visible frustum
       const { halfW, halfH } = frustumHalfSize()
       const bx = halfW * 0.85, by = halfH * 0.85
       if (posX < -bx) { posX = -bx; velX =  Math.abs(velX) * 0.4 }
@@ -187,7 +192,7 @@ export function init(channel) {
       if (posY < -by) { posY = -by; velY =  Math.abs(velY) * 0.4 }
       if (posY >  by) { posY =  by; velY = -Math.abs(velY) * 0.4 }
 
-      fish.position.set(posX, posY, 0)
+      fish.position.set(posX, posY, posZ)
 
       fish.rotation.order = "YXZ"
       fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha)
@@ -220,7 +225,7 @@ export function init(channel) {
       for (const key of row.keys)
         data[key].fill(0)
     orientation.alpha = orientation.beta = orientation.gamma = 0
-    posX = posY = velX = velY = latestGax = latestGay = 0
+    posX = posY = posZ = velX = velY = velZ = latestAx = latestAy = latestAz = 0
     if (fish) fish.position.set(0, 0, 0)
   }
 
@@ -238,9 +243,10 @@ export function init(channel) {
     push("alpha", alpha)
   })
 
-  channel.on("motion", ({ ax, ay, az, gax, gay, gaz, rx, ry, rz }) => {
-    latestGax = gax || 0
-    latestGay = gay || 0
+  channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
+    latestAx = ax || 0
+    latestAy = ay || 0
+    latestAz = az || 0
     push("ax", ax); push("ay", ay); push("az", az)
     push("rx", rx); push("ry", ry); push("rz", rz)
   })

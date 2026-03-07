@@ -74,12 +74,10 @@ if (!el) {
     let motionTick = 0
     window.addEventListener("devicemotion", (e) => {
       if (++motionTick % 2 !== 0) return
-      const a  = e.acceleration                || {}
-      const ag = e.accelerationIncludingGravity || {}
-      const rr = e.rotationRate                || {}
+      const a  = e.acceleration || {}
+      const rr = e.rotationRate || {}
       channel.push("motion", {
         ax: a.x  || 0, ay: a.y  || 0, az: a.z  || 0,
-        gax: ag.x || 0, gay: ag.y || 0, gaz: ag.z || 0,
         rx: rr.beta  || 0, ry: rr.gamma || 0, rz: rr.alpha || 0,
       })
     })

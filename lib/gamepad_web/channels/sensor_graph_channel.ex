@@ -32,13 +32,9 @@ defmodule GamepadWeb.SensorGraphChannel do
   end
 
   def handle_in("motion", %{"ax" => ax, "ay" => ay, "az" => az,
-                             "gax" => gax, "gay" => gay, "gaz" => gaz,
                              "rx" => rx, "ry" => ry, "rz" => rz}, socket) do
-    broadcast!(socket, "motion", %{
-      "ax" => ax, "ay" => ay, "az" => az,
-      "gax" => gax, "gay" => gay, "gaz" => gaz,
-      "rx" => rx, "ry" => ry, "rz" => rz
-    })
+    broadcast!(socket, "motion", %{"ax" => ax, "ay" => ay, "az" => az,
+                                    "rx" => rx, "ry" => ry, "rz" => rz})
     {:noreply, socket}
   end
 
