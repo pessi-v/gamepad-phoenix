@@ -197,7 +197,7 @@ export function init(channel) {
       fish.rotation.order = "YXZ"
       fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha)
       fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta)
-      fish.rotation.z = THREE.MathUtils.degToRad(orientation.gamma)
+      fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma)
     }
 
     renderer.render(scene, camera)
