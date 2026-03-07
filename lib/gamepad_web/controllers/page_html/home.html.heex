@@ -1,3 +1,5 @@
+<canvas id="fish-canvas" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+
 <div id="cs-data"
   data-session-id={@session_id}
   data-pad-url={@pad_url}
@@ -20,9 +22,8 @@
     </div>
   </div>
 
-  <div id="graph-area" class="hidden w-full max-w-5xl rounded-box overflow-hidden bg-base-200 flex" style="height: 280px;">
-    <canvas id="fish-canvas" style="width:280px;height:280px;flex-shrink:0;"></canvas>
-    <canvas id="graph-canvas" style="flex:1;min-width:0;height:100%;display:block;"></canvas>
+  <div id="graph-area" class="hidden w-full max-w-5xl rounded-box overflow-hidden bg-base-200" style="height: 280px;">
+    <canvas id="graph-canvas" style="width:100%;height:100%;display:block;"></canvas>
   </div>
 
   <div class="flex gap-8">

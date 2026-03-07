@@ -44,7 +44,7 @@ export function init(channel) {
   }
 
   function renderGraph() {
-    const W = graphArea.clientWidth - fishCanvas.offsetWidth
+    const W = graphArea.clientWidth
     const H = graphArea.clientHeight
     if (graphCanvas.width  !== W) graphCanvas.width  = W
     if (graphCanvas.height !== H) graphCanvas.height = H
@@ -119,8 +119,8 @@ export function init(channel) {
   renderer.setClearColor(0x000000, 0)
 
   const scene  = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100)
-  camera.position.set(0, 0, 3)
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
+  camera.position.set(0, 0, 5)
 
   scene.add(new THREE.AmbientLight(0xffffff, 1.2))
   const dirLight = new THREE.DirectionalLight(0xffffff, 2)
@@ -130,36 +130,71 @@ export function init(channel) {
   let fish = null
   const orientation = { alpha: 0, beta: 0, gamma: 0 }
 
+  // Fish position physics (world units)
+  // Uses accelerationIncludingGravity so tilting the phone moves the fish
+  // reliably on iOS and Android (e.acceleration is often null on iOS).
+  let posX = 0, posY = 0, velX = 0, velY = 0
+  let latestGax = 0, latestGay = 0
+  const ACCEL    = 0.0001  // tuned for ~9.8 m/s² gravity range
+  const FRICTION = 0.95
+
   const loader = new GLTFLoader()
   loader.load("/assets/Goldfish.glb", (gltf) => {
-    // Wrap in a pivot so we can bake in a 180° turn without fighting the
-    // orientation rotations we apply to the pivot every frame.
     const pivot = new THREE.Group()
-    gltf.scene.rotation.y = Math.PI   // face away from camera
-    const box = new THREE.Box3().setFromObject(gltf.scene)
+    gltf.scene.rotation.y = Math.PI
+    const box    = new THREE.Box3().setFromObject(gltf.scene)
     const centre = box.getCenter(new THREE.Vector3())
     const size   = box.getSize(new THREE.Vector3()).length()
     gltf.scene.position.sub(centre)
-    gltf.scene.scale.setScalar(2 / size)
+    gltf.scene.scale.setScalar(0.5 / size)
     pivot.add(gltf.scene)
     scene.add(pivot)
     fish = pivot
   })
 
+  function frustumHalfSize() {
+    const halfH = camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+    return { halfH, halfW: halfH * camera.aspect }
+  }
+
+  let rendererW = 0, rendererH = 0
   function resizeFish() {
-    const s = fishCanvas.offsetWidth
-    renderer.setSize(s, s, false)
-    camera.updateProjectionMatrix()
+    const W = window.innerWidth, H = window.innerHeight
+    if (rendererW !== W || rendererH !== H) {
+      rendererW = W; rendererH = H
+      renderer.setSize(W, H)
+      camera.aspect = W / H
+      camera.updateProjectionMatrix()
+    }
   }
 
   function renderFish() {
     resizeFish()
+
     if (fish) {
+      // Integrate accelerationIncludingGravity → velocity → position
+      // gax/gay are ~0 when flat, up to ±9.8 m/s² when tilted fully sideways
+      velX = (velX + latestGax * ACCEL) * FRICTION
+      velY = (velY + latestGay * ACCEL) * FRICTION
+      posX += velX
+      posY += velY
+
+      // Soft bounds: spring back when past 85% of the frustum edge
+      const { halfW, halfH } = frustumHalfSize()
+      const bx = halfW * 0.85, by = halfH * 0.85
+      if (posX < -bx) { posX = -bx; velX =  Math.abs(velX) * 0.4 }
+      if (posX >  bx) { posX =  bx; velX = -Math.abs(velX) * 0.4 }
+      if (posY < -by) { posY = -by; velY =  Math.abs(velY) * 0.4 }
+      if (posY >  by) { posY =  by; velY = -Math.abs(velY) * 0.4 }
+
+      fish.position.set(posX, posY, 0)
+
       fish.rotation.order = "YXZ"
       fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha)
       fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta)
       fish.rotation.z = THREE.MathUtils.degToRad(orientation.gamma)
     }
+
     renderer.render(scene, camera)
   }
 
@@ -169,6 +204,7 @@ export function init(channel) {
 
   function startLoop() {
     if (rafId) return
+    fishCanvas.style.display = "block"
     function loop() {
       renderGraph()
       renderFish()
@@ -179,10 +215,13 @@ export function init(channel) {
 
   function stopLoop() {
     if (rafId) { cancelAnimationFrame(rafId); rafId = null }
+    fishCanvas.style.display = "none"
     for (const row of ROWS)
       for (const key of row.keys)
         data[key].fill(0)
     orientation.alpha = orientation.beta = orientation.gamma = 0
+    posX = posY = velX = velY = latestGax = latestGay = 0
+    if (fish) fish.position.set(0, 0, 0)
   }
 
   // ── Channel ───────────────────────────────────────────────────────────────
@@ -199,7 +238,9 @@ export function init(channel) {
     push("alpha", alpha)
   })
 
-  channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
+  channel.on("motion", ({ ax, ay, az, gax, gay, gaz, rx, ry, rz }) => {
+    latestGax = gax || 0
+    latestGay = gay || 0
     push("ax", ax); push("ay", ay); push("az", az)
     push("rx", rx); push("ry", ry); push("rz", rz)
   })
