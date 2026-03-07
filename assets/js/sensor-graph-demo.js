@@ -131,12 +131,19 @@ export function init(channel) {
   let fish = null
   const orientation = { alpha: 0, beta: 0, gamma: 0 }
 
-  // Fish position physics (world units)
+  // Fish position (world units) + scalar forward speed (always >= 0)
   let posX = 0, posY = 0, posZ = 0
-  let velX = 0, velY = 0, velZ = 0
-  let latestAx = 0, latestAy = 0, latestAz = 0
-  const ACCEL    = 0.001
-  const FRICTION = 0.93
+  let fishSpeed = 0
+  const FISH_SPEED    = 0.002  // speed added per frame at full wiggle
+  const FISH_FRICTION = 0.99   // speed decay per frame
+
+  // Wiggle detection: count yaw direction-reversals in a rolling window.
+  // Only deltas above WIGGLE_THRESHOLD are counted to reject sensor noise.
+  const WIGGLE_WINDOW    = 16   // ~0.5 s at 30 Hz
+  const WIGGLE_THRESHOLD = 3    // degrees — below this is considered noise
+  let prevAlpha = 0
+  const alphaDeltas = []
+  let wiggleEnergy = 0
 
   const loader = new GLTFLoader()
   loader.load("/assets/Goldfish.glb", (gltf) => {
@@ -173,25 +180,30 @@ export function init(channel) {
     resizeFish()
 
     if (fish) {
-      // Integrate acceleration → velocity → position in all three axes
-      velX = (velX + latestAx * ACCEL) * FRICTION
-      velY = (velY + latestAy * ACCEL) * FRICTION
-      velZ = (velZ + latestAz * ACCEL) * FRICTION
-      posX += velX
-      posY += velY
-      posZ += velZ
+      // Scalar speed along current heading — fish can only move forward.
+      // Forward direction from YXZ Euler (same order as fish.rotation.order):
+      //   fwd = Ry(α) · Rx(β) · [0, 0, 1] = (sin α cos β, -sin β, cos α cos β)
+      const a = THREE.MathUtils.degToRad(orientation.alpha)
+      const b = THREE.MathUtils.degToRad(orientation.beta)
+      const fwdX = -Math.sin(a) * Math.cos(b)
+      const fwdY =  Math.sin(b)
+      const fwdZ = -Math.cos(a) * Math.cos(b)
+      fishSpeed = fishSpeed * FISH_FRICTION + wiggleEnergy * FISH_SPEED
+      posX += fwdX * fishSpeed
+      posY += fwdY * fishSpeed
+      posZ += fwdZ * fishSpeed
 
       // Z bounds: keep fish between z=-4 (far) and z=3 (close, still in front of camera at z=5)
-      if (posZ < -4) { posZ = -4; velZ =  Math.abs(velZ) * 0.4 }
-      if (posZ >  3) { posZ =  3; velZ = -Math.abs(velZ) * 0.4 }
+      if (posZ < -4) { posZ = -4; fishSpeed = 0 }
+      if (posZ >  3) { posZ =  3; fishSpeed = 0 }
 
       // XY bounds scale with depth so the fish stays in the visible frustum
       const { halfW, halfH } = frustumHalfSize()
       const bx = halfW * 0.85, by = halfH * 0.85
-      if (posX < -bx) { posX = -bx; velX =  Math.abs(velX) * 0.4 }
-      if (posX >  bx) { posX =  bx; velX = -Math.abs(velX) * 0.4 }
-      if (posY < -by) { posY = -by; velY =  Math.abs(velY) * 0.4 }
-      if (posY >  by) { posY =  by; velY = -Math.abs(velY) * 0.4 }
+      if (posX < -bx) { posX = -bx; fishSpeed = 0 }
+      if (posX >  bx) { posX =  bx; fishSpeed = 0 }
+      if (posY < -by) { posY = -by; fishSpeed = 0 }
+      if (posY >  by) { posY =  by; fishSpeed = 0 }
 
       fish.position.set(posX, posY, posZ)
 
@@ -226,7 +238,8 @@ export function init(channel) {
       for (const key of row.keys)
         data[key].fill(0)
     orientation.alpha = orientation.beta = orientation.gamma = 0
-    posX = posY = posZ = velX = velY = velZ = latestAx = latestAy = latestAz = 0
+    posX = posY = posZ = fishSpeed = wiggleEnergy = prevAlpha = 0
+    alphaDeltas.length = 0
     if (fish) fish.position.set(0, 0, 0)
   }
 
@@ -236,18 +249,31 @@ export function init(channel) {
   channel.on("sensor_graph_disconnected", () => { stopLoop(); graphArea.classList.add("hidden") })
 
   channel.on("orient", ({ alpha, beta, gamma }) => {
-    orientation.alpha = alpha || 0
+    const a = alpha || 0
+    orientation.alpha = a
     orientation.beta  = beta  || 0
     orientation.gamma = gamma || 0
+
+    // Detect yaw oscillation: wrap-safe delta, then count direction reversals
+    let delta = ((a - prevAlpha) % 360 + 540) % 360 - 180
+    prevAlpha = a
+    alphaDeltas.push(delta)
+    if (alphaDeltas.length > WIGGLE_WINDOW) alphaDeltas.shift()
+
+    let reversals = 0
+    for (let i = 1; i < alphaDeltas.length; i++) {
+      const d0 = alphaDeltas[i - 1], d1 = alphaDeltas[i]
+      if (d0 * d1 < 0 && Math.abs(d0) > WIGGLE_THRESHOLD && Math.abs(d1) > WIGGLE_THRESHOLD)
+        reversals++
+    }
+    wiggleEnergy = reversals / Math.max(1, alphaDeltas.length - 1)
+
     push("beta",  beta)
     push("gamma", gamma)
     push("alpha", alpha)
   })
 
   channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
-    latestAx = ax || 0
-    latestAy = ay || 0
-    latestAz = az || 0
     push("ax", ax); push("ay", ay); push("az", az)
     push("rx", rx); push("ry", ry); push("rz", rz)
   })
