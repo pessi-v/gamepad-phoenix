@@ -3,6 +3,7 @@ defmodule GamepadWeb.UserSocket do
 
   channel "game:*",   GamepadWeb.GameChannel
   channel "sensor:*", GamepadWeb.SensorChannel
+  channel "fish:*",   GamepadWeb.FishChannel
 
   @impl true
   def connect(_params, socket, _connect_info), do: {:ok, socket}

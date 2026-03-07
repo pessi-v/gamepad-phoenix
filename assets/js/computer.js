@@ -271,4 +271,23 @@ if (!el) {
     .join()
     .receive("ok",   () => console.log("[CS] joined sensor:" + sessionId))
     .receive("error", (err) => console.error("[CS] sensor join error", err))
+
+  // --- Fish: 3D goldfish controlled by tilt ---
+  const fishData  = document.getElementById("fish-data")
+  const fishQrEl  = document.getElementById("fish-qr")
+  if (fishData && fishQrEl && typeof QRCode !== "undefined") {
+    new QRCode(fishQrEl, { text: fishData.dataset.fishUrl, width: 200, height: 200 })
+  }
+
+  const fishSessionId = fishData?.dataset.sessionId
+  const fishChannel   = socket.channel(`fish:${fishSessionId}`, {})
+
+  fishChannel.on("fish_connected",    () => window.dispatchEvent(new CustomEvent("fish:connected")))
+  fishChannel.on("fish_disconnected", () => window.dispatchEvent(new CustomEvent("fish:disconnected")))
+  fishChannel.on("accel", ({ x, y, z }) => window.dispatchEvent(new CustomEvent("fish:accel", { detail: { x, y, z } })))
+
+  fishChannel
+    .join()
+    .receive("ok",    () => console.log("[CS] joined fish:" + fishSessionId))
+    .receive("error", (err) => console.error("[CS] fish join error", err))
 }
