@@ -1,280 +1,334 @@
-import * as THREE from "three"
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export function init(channel) {
-  const graphArea   = document.getElementById("graph-area")
-  const graphCanvas = document.getElementById("graph-canvas")
-  const fishCanvas  = document.getElementById("fish-canvas")
+  const graphArea = document.getElementById("graph-area");
+  const graphCanvas = document.getElementById("graph-canvas");
+  const fishCanvas = document.getElementById("fish-canvas");
 
   // ── Graph ─────────────────────────────────────────────────────────────────
 
-  const MAX_POINTS = 200
+  const MAX_POINTS = 200;
   const ROWS = [
     {
-      label:        "Orientation (°)",
-      keys:         ["beta", "gamma", "alpha"],
+      label: "Orientation (°)",
+      keys: ["beta", "gamma", "alpha"],
       seriesLabels: ["β", "γ", "α"],
-      min: -180, max: 360,
-      colors:       ["#f87171", "#4ade80", "#60a5fa"],
+      min: -180,
+      max: 360,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
     },
     {
-      label:        "Acceleration (m/s²)",
-      keys:         ["ax", "ay", "az"],
+      label: "Acceleration (m/s²)",
+      keys: ["ax", "ay", "az"],
       seriesLabels: ["x", "y", "z"],
-      min: -20, max: 20,
-      colors:       ["#f87171", "#4ade80", "#60a5fa"],
+      min: -20,
+      max: 20,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
     },
     {
-      label:        "Rotation (°/s)",
-      keys:         ["rx", "ry", "rz"],
+      label: "Rotation (°/s)",
+      keys: ["rx", "ry", "rz"],
       seriesLabels: ["x", "y", "z"],
-      min: -360, max: 360,
-      colors:       ["#f87171", "#4ade80", "#60a5fa"],
+      min: -360,
+      max: 360,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
     },
-  ]
+  ];
 
-  const data = {}
+  const data = {};
   for (const row of ROWS)
-    for (const key of row.keys)
-      data[key] = new Array(MAX_POINTS).fill(0)
+    for (const key of row.keys) data[key] = new Array(MAX_POINTS).fill(0);
 
   function push(key, val) {
-    data[key].push(val != null ? val : 0)
-    if (data[key].length > MAX_POINTS) data[key].shift()
+    data[key].push(val != null ? val : 0);
+    if (data[key].length > MAX_POINTS) data[key].shift();
   }
 
   function renderGraph() {
-    const W = graphArea.clientWidth
-    const H = graphArea.clientHeight
-    if (graphCanvas.width  !== W) graphCanvas.width  = W
-    if (graphCanvas.height !== H) graphCanvas.height = H
+    const W = graphArea.clientWidth;
+    const H = graphArea.clientHeight;
+    if (graphCanvas.width !== W) graphCanvas.width = W;
+    if (graphCanvas.height !== H) graphCanvas.height = H;
 
-    const ctx = graphCanvas.getContext("2d")
-    ctx.clearRect(0, 0, W, H)
+    const ctx = graphCanvas.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
 
-    const LEFT    = 46
-    const RIGHT   = 12
-    const LABEL_H = 16
-    const ROW_GAP = 8
-    const plotW   = W - LEFT - RIGHT
-    const rowH    = Math.floor((H - ROW_GAP * (ROWS.length - 1)) / ROWS.length)
-    const plotH   = rowH - LABEL_H
+    const LEFT = 46;
+    const RIGHT = 12;
+    const LABEL_H = 16;
+    const ROW_GAP = 8;
+    const plotW = W - LEFT - RIGHT;
+    const rowH = Math.floor((H - ROW_GAP * (ROWS.length - 1)) / ROWS.length);
+    const plotH = rowH - LABEL_H;
 
     ROWS.forEach((row, ri) => {
-      const rowTop  = ri * (rowH + ROW_GAP)
-      const plotTop = rowTop + LABEL_H
-      const span   = row.max - row.min
-      const zeroY  = plotTop + plotH * (1 - (0 - row.min) / span)
+      const rowTop = ri * (rowH + ROW_GAP);
+      const plotTop = rowTop + LABEL_H;
+      const span = row.max - row.min;
+      const zeroY = plotTop + plotH * (1 - (0 - row.min) / span);
 
-      ctx.fillStyle = "rgba(255,255,255,0.04)"
-      ctx.fillRect(LEFT, plotTop, plotW, plotH)
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.fillRect(LEFT, plotTop, plotW, plotH);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.15)"
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 4])
-      ctx.beginPath()
-      ctx.moveTo(LEFT, zeroY)
-      ctx.lineTo(LEFT + plotW, zeroY)
-      ctx.stroke()
-      ctx.setLineDash([])
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(LEFT, zeroY);
+      ctx.lineTo(LEFT + plotW, zeroY);
+      ctx.stroke();
+      ctx.setLineDash([]);
 
-      ctx.fillStyle = "rgba(255,255,255,0.3)"
-      ctx.font = "9px monospace"
-      ctx.textAlign = "right"
-      ctx.fillText(row.max, LEFT - 2, plotTop + 8)
-      ctx.fillText(row.min, LEFT - 2, plotTop + plotH)
-      ctx.textAlign = "left"
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.font = "9px monospace";
+      ctx.textAlign = "right";
+      ctx.fillText(row.max, LEFT - 2, plotTop + 8);
+      ctx.fillText(row.min, LEFT - 2, plotTop + plotH);
+      ctx.textAlign = "left";
 
-      ctx.fillStyle = "rgba(255,255,255,0.55)"
-      ctx.font = "11px monospace"
-      ctx.fillText(row.label, LEFT, rowTop + 11)
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = "11px monospace";
+      ctx.fillText(row.label, LEFT, rowTop + 11);
 
-      let xCursor = LEFT + ctx.measureText(row.label + "   ").width
+      let xCursor = LEFT + ctx.measureText(row.label + "   ").width;
       row.keys.forEach((key, ki) => {
-        const cur    = data[key][data[key].length - 1]
-        const valStr = `${row.seriesLabels[ki]}:${cur >= 0 ? "+" : ""}${cur.toFixed(1)}  `
-        ctx.fillStyle = row.colors[ki]
-        ctx.fillText(valStr, xCursor, rowTop + 11)
-        xCursor += ctx.measureText(valStr).width
-      })
+        const cur = data[key][data[key].length - 1];
+        const valStr = `${row.seriesLabels[ki]}:${cur >= 0 ? "+" : ""}${cur.toFixed(1)}  `;
+        ctx.fillStyle = row.colors[ki];
+        ctx.fillText(valStr, xCursor, rowTop + 11);
+        xCursor += ctx.measureText(valStr).width;
+      });
 
       row.keys.forEach((key, ki) => {
-        const vals = data[key]
-        ctx.strokeStyle = row.colors[ki]
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
+        const vals = data[key];
+        ctx.strokeStyle = row.colors[ki];
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
         vals.forEach((v, i) => {
-          const x = LEFT + (i / (MAX_POINTS - 1)) * plotW
-          const y = plotTop + plotH * (1 - Math.max(0, Math.min(1, (v - row.min) / span)))
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
-        })
-        ctx.stroke()
-      })
-    })
+          const x = LEFT + (i / (MAX_POINTS - 1)) * plotW;
+          const y =
+            plotTop +
+            plotH * (1 - Math.max(0, Math.min(1, (v - row.min) / span)));
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    });
   }
 
   // ── Fish (Three.js) ───────────────────────────────────────────────────────
 
-  const renderer = new THREE.WebGLRenderer({ canvas: fishCanvas, antialias: true, alpha: true })
-  renderer.setPixelRatio(window.devicePixelRatio)
-  renderer.setClearColor(0x000000, 0)
+  const renderer = new THREE.WebGLRenderer({
+    canvas: fishCanvas,
+    antialias: true,
+    alpha: true,
+  });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x000000, 0);
 
-  const scene  = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
-  camera.position.set(0, 0, 5)
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100,
+  );
+  camera.position.set(0, 0, 5);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2))
-  const dirLight = new THREE.DirectionalLight(0xffffff, 2)
-  dirLight.position.set(2, 4, 3)
-  scene.add(dirLight)
+  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+  dirLight.position.set(2, 4, 3);
+  scene.add(dirLight);
 
-  let fish = null
-  const orientation = { alpha: 0, beta: 0, gamma: 0 }
+  let fish = null;
+  const orientation = { alpha: 0, beta: 0, gamma: 0 };
 
   // Fish position (world units) + scalar forward speed (always >= 0)
-  let posX = 0, posY = 0, posZ = 0
-  let fishSpeed = 0
-  const FISH_SPEED    = 0.002  // speed added per frame at full wiggle
-  const FISH_FRICTION = 0.99   // speed decay per frame
+  let posX = 0,
+    posY = 1.2,
+    posZ = 0;
+  let fishSpeed = 0;
+  const FISH_SPEED = 0.002; // speed added per frame at full wiggle
+  const FISH_FRICTION = 0.99; // speed decay per frame
 
   // Wiggle detection: count yaw direction-reversals in a rolling window.
   // Only deltas above WIGGLE_THRESHOLD are counted to reject sensor noise.
-  const WIGGLE_WINDOW    = 16   // ~0.5 s at 30 Hz
-  const WIGGLE_THRESHOLD = 3    // degrees — below this is considered noise
-  let prevAlpha = 0
-  const alphaDeltas = []
-  let wiggleEnergy = 0
+  const WIGGLE_WINDOW = 16; // ~0.5 s at 30 Hz
+  const WIGGLE_THRESHOLD = 3; // degrees — below this is considered noise
+  let prevAlpha = 0;
+  const alphaDeltas = [];
+  let wiggleEnergy = 0;
 
-  const loader = new GLTFLoader()
+  const loader = new GLTFLoader();
   loader.load("/assets/Goldfish.glb", (gltf) => {
-    const pivot = new THREE.Group()
-    gltf.scene.rotation.y = Math.PI
-    const box    = new THREE.Box3().setFromObject(gltf.scene)
-    const centre = box.getCenter(new THREE.Vector3())
-    const size   = box.getSize(new THREE.Vector3()).length()
-    gltf.scene.position.sub(centre)
-    gltf.scene.scale.setScalar(0.5 / size)
-    pivot.add(gltf.scene)
-    scene.add(pivot)
-    fish = pivot
-  })
+    const pivot = new THREE.Group();
+    gltf.scene.rotation.y = Math.PI;
+    const box = new THREE.Box3().setFromObject(gltf.scene);
+    const centre = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
+    gltf.scene.position.sub(centre);
+    gltf.scene.scale.setScalar(0.5 / size);
+    pivot.add(gltf.scene);
+    scene.add(pivot);
+    fish = pivot;
+  });
 
   function frustumHalfSize() {
-    const depth = camera.position.z - posZ
-    const halfH = depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
-    return { halfH, halfW: halfH * camera.aspect }
+    const depth = camera.position.z - posZ;
+    const halfH = depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    return { halfH, halfW: halfH * camera.aspect };
   }
 
-  let rendererW = 0, rendererH = 0
+  let rendererW = 0,
+    rendererH = 0;
   function resizeFish() {
-    const W = window.innerWidth, H = window.innerHeight
+    const W = window.innerWidth,
+      H = window.innerHeight;
     if (rendererW !== W || rendererH !== H) {
-      rendererW = W; rendererH = H
-      renderer.setSize(W, H)
-      camera.aspect = W / H
-      camera.updateProjectionMatrix()
+      rendererW = W;
+      rendererH = H;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
     }
   }
 
   function renderFish() {
-    resizeFish()
+    resizeFish();
 
     if (fish) {
       // Scalar speed along current heading — fish can only move forward.
       // Forward direction from YXZ Euler (same order as fish.rotation.order):
       //   fwd = Ry(α) · Rx(β) · [0, 0, 1] = (sin α cos β, -sin β, cos α cos β)
-      const a = THREE.MathUtils.degToRad(orientation.alpha)
-      const b = THREE.MathUtils.degToRad(orientation.beta)
-      const fwdX = -Math.sin(a) * Math.cos(b)
-      const fwdY =  Math.sin(b)
-      const fwdZ = -Math.cos(a) * Math.cos(b)
-      fishSpeed = fishSpeed * FISH_FRICTION + wiggleEnergy * FISH_SPEED
-      posX += fwdX * fishSpeed
-      posY += fwdY * fishSpeed
-      posZ += fwdZ * fishSpeed
+      const a = THREE.MathUtils.degToRad(orientation.alpha);
+      const b = THREE.MathUtils.degToRad(orientation.beta);
+      const fwdX = -Math.sin(a) * Math.cos(b);
+      const fwdY = Math.sin(b);
+      const fwdZ = -Math.cos(a) * Math.cos(b);
+      fishSpeed = fishSpeed * FISH_FRICTION + wiggleEnergy * FISH_SPEED;
+      posX += fwdX * fishSpeed;
+      posY += fwdY * fishSpeed;
+      posZ += fwdZ * fishSpeed;
 
-      // Z bounds: keep fish between z=-4 (far) and z=3 (close, still in front of camera at z=5)
-      if (posZ < -4) { posZ = -4; fishSpeed = 0 }
-      if (posZ >  3) { posZ =  3; fishSpeed = 0 }
+      // Z bounds: keep fish between z=-12 (far) and z=4.5 (close, still in front of camera at z=5)
+      if (posZ < -12) {
+        posZ = -12;
+        fishSpeed = 0;
+      }
+      if (posZ > 4.5) {
+        posZ = 4.5;
+        fishSpeed = 0;
+      }
 
       // XY bounds scale with depth so the fish stays in the visible frustum
-      const { halfW, halfH } = frustumHalfSize()
-      const bx = halfW * 0.85, by = halfH * 0.85
-      if (posX < -bx) { posX = -bx; fishSpeed = 0 }
-      if (posX >  bx) { posX =  bx; fishSpeed = 0 }
-      if (posY < -by) { posY = -by; fishSpeed = 0 }
-      if (posY >  by) { posY =  by; fishSpeed = 0 }
+      const { halfW, halfH } = frustumHalfSize();
+      const bx = halfW,
+        by = halfH;
+      if (posX < -bx) {
+        posX = -bx;
+        fishSpeed = 0;
+      }
+      if (posX > bx) {
+        posX = bx;
+        fishSpeed = 0;
+      }
+      if (posY < -by) {
+        posY = -by;
+        fishSpeed = 0;
+      }
+      if (posY > by) {
+        posY = by;
+        fishSpeed = 0;
+      }
 
-      fish.position.set(posX, posY, posZ)
+      fish.position.set(posX, posY, posZ);
 
-      fish.rotation.order = "YXZ"
-      fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha)
-      fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta)
-      fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma)
+      fish.rotation.order = "YXZ";
+      fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha);
+      fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta * 0.5);
+      fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma * 0.5);
     }
 
-    renderer.render(scene, camera)
+    renderer.render(scene, camera);
   }
 
   // ── Loop ──────────────────────────────────────────────────────────────────
 
-  let rafId = null
+  let rafId = null;
 
   function startLoop() {
-    if (rafId) return
-    fishCanvas.style.display = "block"
+    if (rafId) return;
+    fishCanvas.style.display = "block";
     function loop() {
-      renderGraph()
-      renderFish()
-      rafId = requestAnimationFrame(loop)
+      // renderGraph();
+      renderFish();
+      rafId = requestAnimationFrame(loop);
     }
-    rafId = requestAnimationFrame(loop)
+    rafId = requestAnimationFrame(loop);
   }
 
   function stopLoop() {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null }
-    fishCanvas.style.display = "none"
-    for (const row of ROWS)
-      for (const key of row.keys)
-        data[key].fill(0)
-    orientation.alpha = orientation.beta = orientation.gamma = 0
-    posX = posY = posZ = fishSpeed = wiggleEnergy = prevAlpha = 0
-    alphaDeltas.length = 0
-    if (fish) fish.position.set(0, 0, 0)
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    fishCanvas.style.display = "none";
+    for (const row of ROWS) for (const key of row.keys) data[key].fill(0);
+    orientation.alpha = orientation.beta = orientation.gamma = 0;
+    posX = posY = posZ = fishSpeed = wiggleEnergy = prevAlpha = 0;
+    alphaDeltas.length = 0;
+    posY = 1.2;
+    if (fish) fish.position.set(0, 1.2, 0);
   }
 
   // ── Channel ───────────────────────────────────────────────────────────────
 
-  channel.on("sensor_graph_connected",    () => { graphArea.classList.remove("hidden"); startLoop() })
-  channel.on("sensor_graph_disconnected", () => { stopLoop(); graphArea.classList.add("hidden") })
+  channel.on("sensor_graph_connected", () => {
+    // graphArea.classList.remove("hidden");
+    startLoop();
+  });
+  channel.on("sensor_graph_disconnected", () => {
+    stopLoop();
+    graphArea.classList.add("hidden");
+  });
 
   channel.on("orient", ({ alpha, beta, gamma }) => {
-    const a = alpha || 0
-    orientation.alpha = a
-    orientation.beta  = beta  || 0
-    orientation.gamma = gamma || 0
+    const a = alpha || 0;
+    orientation.alpha = a;
+    orientation.beta = beta || 0;
+    orientation.gamma = gamma || 0;
 
     // Detect yaw oscillation: wrap-safe delta, then count direction reversals
-    let delta = ((a - prevAlpha) % 360 + 540) % 360 - 180
-    prevAlpha = a
-    alphaDeltas.push(delta)
-    if (alphaDeltas.length > WIGGLE_WINDOW) alphaDeltas.shift()
+    let delta = ((((a - prevAlpha) % 360) + 540) % 360) - 180;
+    prevAlpha = a;
+    alphaDeltas.push(delta);
+    if (alphaDeltas.length > WIGGLE_WINDOW) alphaDeltas.shift();
 
-    let reversals = 0
+    let reversals = 0;
     for (let i = 1; i < alphaDeltas.length; i++) {
-      const d0 = alphaDeltas[i - 1], d1 = alphaDeltas[i]
-      if (d0 * d1 < 0 && Math.abs(d0) > WIGGLE_THRESHOLD && Math.abs(d1) > WIGGLE_THRESHOLD)
-        reversals++
+      const d0 = alphaDeltas[i - 1],
+        d1 = alphaDeltas[i];
+      if (
+        d0 * d1 < 0 &&
+        Math.abs(d0) > WIGGLE_THRESHOLD &&
+        Math.abs(d1) > WIGGLE_THRESHOLD
+      )
+        reversals++;
     }
-    wiggleEnergy = reversals / Math.max(1, alphaDeltas.length - 1)
+    wiggleEnergy = reversals / Math.max(1, alphaDeltas.length - 1);
 
-    push("beta",  beta)
-    push("gamma", gamma)
-    push("alpha", alpha)
-  })
+    push("beta", beta);
+    push("gamma", gamma);
+    push("alpha", alpha);
+  });
 
   channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
-    push("ax", ax); push("ay", ay); push("az", az)
-    push("rx", rx); push("ry", ry); push("rz", rz)
-  })
+    push("ax", ax);
+    push("ay", ay);
+    push("az", az);
+    push("rx", rx);
+    push("ry", ry);
+    push("rz", rz);
+  });
 }
