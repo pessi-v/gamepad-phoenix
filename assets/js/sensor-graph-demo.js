@@ -257,9 +257,14 @@ export function init(channel) {
 
   let rafId = null;
 
+  fishCanvas.style.transition = "opacity 1.5s ease";
+
   function startLoop() {
     if (rafId) return;
     fishCanvas.style.display = "block";
+    fishCanvas.style.opacity = "0";
+    fishCanvas.getBoundingClientRect(); // force reflow so transition fires
+    fishCanvas.style.opacity = "1";
     function loop() {
       // renderGraph();
       renderFish();
@@ -273,7 +278,14 @@ export function init(channel) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
-    fishCanvas.style.display = "none";
+    fishCanvas.style.opacity = "0";
+    fishCanvas.addEventListener(
+      "transitionend",
+      () => {
+        fishCanvas.style.display = "none";
+      },
+      { once: true },
+    );
     for (const row of ROWS) for (const key of row.keys) data[key].fill(0);
     orientation.alpha = orientation.beta = orientation.gamma = 0;
     posX = posY = posZ = fishSpeed = wiggleEnergy = prevAlpha = 0;
