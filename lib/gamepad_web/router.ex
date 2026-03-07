@@ -20,6 +20,7 @@ defmodule GamepadWeb.Router do
     get "/", PageController, :home
     get "/pad/:session_id", PadController, :pad
     get "/sensor/:session_id", SensorController, :sensor
+    get "/fish/:session_id", FishController, :fish
   end
 
   if Application.compile_env(:gamepad, :dev_routes) do
@@ -28,6 +29,7 @@ defmodule GamepadWeb.Router do
 
       get "/pad", PadController, :pad_preview
       get "/sensor", SensorController, :sensor_preview
+      get "/fish", FishController, :fish_preview
     end
   end
 
