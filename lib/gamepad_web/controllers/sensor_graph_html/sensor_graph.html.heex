@@ -1,0 +1,15 @@
+<div id="sensor-graph-data" data-session-id={@session_id}></div>
+
+<div class="min-h-screen flex flex-col items-center justify-center gap-6 select-none p-8">
+  <h1 class="text-2xl font-bold">Sensor Graph</h1>
+
+  <div id="sensor-graph-waiting" class="flex flex-col items-center gap-4">
+    <p class="text-base-content/60 text-center text-sm">Tap to enable motion sensors</p>
+    <button id="sensor-graph-enable-btn" class="btn btn-primary">Enable Motion</button>
+  </div>
+
+  <div id="sensor-graph-active" class="hidden flex flex-col items-center gap-3">
+    <div class="text-5xl">📡</div>
+    <p class="text-base-content/60 text-sm">Streaming sensor data</p>
+  </div>
+</div>
