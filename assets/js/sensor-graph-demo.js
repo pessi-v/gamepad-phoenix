@@ -132,14 +132,18 @@ export function init(channel) {
 
   const loader = new GLTFLoader()
   loader.load("/assets/Goldfish.glb", (gltf) => {
-    fish = gltf.scene
-    // Centre and scale to fit
-    const box = new THREE.Box3().setFromObject(fish)
+    // Wrap in a pivot so we can bake in a 180° turn without fighting the
+    // orientation rotations we apply to the pivot every frame.
+    const pivot = new THREE.Group()
+    gltf.scene.rotation.y = Math.PI   // face away from camera
+    const box = new THREE.Box3().setFromObject(gltf.scene)
     const centre = box.getCenter(new THREE.Vector3())
     const size   = box.getSize(new THREE.Vector3()).length()
-    fish.position.sub(centre)
-    fish.scale.setScalar(2 / size)
-    scene.add(fish)
+    gltf.scene.position.sub(centre)
+    gltf.scene.scale.setScalar(2 / size)
+    pivot.add(gltf.scene)
+    scene.add(pivot)
+    fish = pivot
   })
 
   function resizeFish() {

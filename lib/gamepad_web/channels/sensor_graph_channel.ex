@@ -1,11 +1,27 @@
 defmodule GamepadWeb.SensorGraphChannel do
   use Phoenix.Channel
 
+  alias GamepadWeb.SensorGraphState
+
   @impl true
-  def join("sensor_graph:" <> _session_id, _payload, socket), do: {:ok, socket}
+  def join("sensor_graph:" <> session_id, _payload, socket) do
+    socket = assign(socket, :session_id, session_id)
+    if SensorGraphState.connected?(session_id) do
+      # Sensor already active; notify this client once the join completes
+      send(self(), :notify_connected)
+    end
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(:notify_connected, socket) do
+    push(socket, "sensor_graph_connected", %{})
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_in("sensor_graph_join", _payload, socket) do
+    SensorGraphState.set_connected(socket.assigns.session_id)
     broadcast!(socket, "sensor_graph_connected", %{})
     {:noreply, assign(socket, :role, :sensor_graph)}
   end
@@ -22,6 +38,7 @@ defmodule GamepadWeb.SensorGraphChannel do
 
   @impl true
   def terminate(_reason, %{assigns: %{role: :sensor_graph}} = socket) do
+    SensorGraphState.set_disconnected(socket.assigns.session_id)
     broadcast!(socket, "sensor_graph_disconnected", %{})
     :ok
   end
