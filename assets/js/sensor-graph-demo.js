@@ -1,6 +1,17 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+// Bone names in spine order, head → tail
+const SPINE_BONES = [
+  "Bone001_01", "Bone002_02", "Bone003_03", "Bone004_04",
+  "Bone005_05", "Bone006_06", "Bone007_07", "Bone008_08",
+];
+const FIN_BONES = [
+  "Bone008UP_09", "Bone008DOWN_010",
+  "Left_fin_013", "Right_fin_014",
+  "Left_down_fin_011", "Right_down_fin_012",
+];
+
 export function init(channel) {
   const graphArea = document.getElementById("graph-area");
   const graphCanvas = document.getElementById("graph-canvas");
@@ -144,6 +155,15 @@ export function init(channel) {
   let fish = null;
   const orientation = { alpha: 0, beta: 0, gamma: 0 };
 
+  // Procedural bone animation state
+  const clock = new THREE.Clock();
+  let wigglePhase = 0;
+  const bones = {};       // name → Object3D
+  const restQ = {};       // name → Quaternion (rest pose)
+  const _tmpQ = new THREE.Quaternion();
+  const _X = new THREE.Vector3(1, 0, 0);
+  const _Z = new THREE.Vector3(0, 0, 1);
+
   // Fish position (world units) + scalar forward speed (always >= 0)
   let posX = 0,
     posY = 1.2,
@@ -161,7 +181,7 @@ export function init(channel) {
   let wiggleEnergy = 0;
 
   const loader = new GLTFLoader();
-  loader.load("/assets/Goldfish.glb", (gltf) => {
+  loader.load("/assets/yellow_tang_fish.glb", (gltf) => {
     const pivot = new THREE.Group();
     gltf.scene.rotation.y = Math.PI;
     const box = new THREE.Box3().setFromObject(gltf.scene);
@@ -172,6 +192,16 @@ export function init(channel) {
     pivot.add(gltf.scene);
     scene.add(pivot);
     fish = pivot;
+
+    // Collect bone refs directly from the SkinnedMesh skeleton
+    gltf.scene.traverse((obj) => {
+      if (obj.isSkinnedMesh) {
+        obj.skeleton.bones.forEach((bone) => { bones[bone.name] = bone; });
+      }
+    });
+    [...SPINE_BONES, ...FIN_BONES].forEach((name) => {
+      if (bones[name]) restQ[name] = bones[name].quaternion.clone();
+    });
   });
 
   function frustumHalfSize() {
@@ -248,6 +278,56 @@ export function init(channel) {
       fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha);
       fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta * 0.5);
       fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma * 0.5);
+
+      // ── Procedural bone animation ────────────────────────────────────────
+      const dt = Math.min(clock.getDelta(), 0.1); // clamp to avoid jumps
+
+      // Phase advances faster when the user wiggles more
+      const IDLE_FREQ = 1.5;   // rad/s — gentle idle undulation
+      const SWIM_FREQ = 6.0;   // rad/s added at full wiggle energy
+      wigglePhase += dt * (IDLE_FREQ + wiggleEnergy * SWIM_FREQ);
+
+      // Spine: traveling sine wave, head→tail.
+      // Bone-local X is the lateral axis (confirmed from Swim Animation keyframes).
+      // Amplitude envelope: near-zero at head, peaks at tail.
+      SPINE_BONES.forEach((name, i) => {
+        const bone = bones[name];
+        if (!bone || !restQ[name]) return;
+        const t = i / (SPINE_BONES.length - 1); // 0 = head, 1 = tail
+        const phase = wigglePhase - t * Math.PI * 1.5;
+        const amp = (0.05 + t * 0.35) * (0.3 + wiggleEnergy * 0.7);
+        _tmpQ.setFromAxisAngle(_X, Math.sin(phase) * amp);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ);
+      });
+
+      // Tail lobes: spread outward with speed
+      ["Bone.008UP_09", "Bone.008DOWN_010"].forEach((name, i) => {
+        const bone = bones[name];
+        if (!bone || !restQ[name]) return;
+        const sign = i === 0 ? 1 : -1;
+        _tmpQ.setFromAxisAngle(_Z, sign * 0.25 * wiggleEnergy);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ);
+      });
+
+      // Pectoral fins: alternating flap in phase with the swim cycle
+      ["Left_fin_013", "Right_fin_013"].forEach((name, i) => {
+        const bone = bones[name];
+        if (!bone || !restQ[name]) return;
+        const side = i === 0 ? 1 : -1;
+        const flap = side * Math.sin(wigglePhase * 0.7 + i * Math.PI) * 0.3 * (0.3 + wiggleEnergy * 0.7);
+        _tmpQ.setFromAxisAngle(_Z, flap);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ);
+      });
+
+      // Ventral fins: subtle flutter
+      ["Left_down_fin_011", "Right_down_fin_012"].forEach((name, i) => {
+        const bone = bones[name];
+        if (!bone || !restQ[name]) return;
+        const side = i === 0 ? 1 : -1;
+        const flutter = side * Math.sin(wigglePhase * 1.1 + i * Math.PI) * 0.12 * (0.2 + wiggleEnergy * 0.5);
+        _tmpQ.setFromAxisAngle(_Z, flutter);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ);
+      });
     }
 
     renderer.render(scene, camera);
@@ -294,7 +374,11 @@ export function init(channel) {
     posX = posY = posZ = fishSpeed = wiggleEnergy = prevAlpha = 0;
     alphaDeltas.length = 0;
     posY = 1.2;
+    wigglePhase = 0;
     if (fish) fish.position.set(0, 1.2, 0);
+    [...SPINE_BONES, ...FIN_BONES].forEach((name) => {
+      if (bones[name] && restQ[name]) bones[name].quaternion.copy(restQ[name]);
+    });
   }
 
   // ── Channel ───────────────────────────────────────────────────────────────
