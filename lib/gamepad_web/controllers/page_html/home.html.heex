@@ -8,10 +8,22 @@
   <div class="modal-box max-w-lg">
     <h3 class="font-bold text-2xl mb-4">What are we looking at:</h3>
     <p class="text-sm leading-relaxed text-base-content/80">
-      This is a proof-of-concept for desktop–smartphone interactions. Each QR code can be scanned with a smartphone, and a connection between the open page and the smartphone will be established. Data is transferred using WebSockets to the browser session from the smartphone. <em>Gamepad</em> turns the smartphone into a simple game console pad, with a thumbstick and A/B buttons. <em>Motion</em> uses the phone's orientation to move a ball along a track. <em>Fish</em> uses the phone's orientation to detect direction and fish-like wiggling movement to control a fish in 3D space.
+      This is a proof-of-concept for desktop–smartphone interactions. Each QR code can be scanned with a smartphone, and a connection between the open page and the smartphone will be established. 
     </p>
     <p class="text-sm leading-relaxed text-base-content/80 mt-4">
-      Although sending data through the Internet between devices introduces some latency, I think these POCs show that smartphones could be used to design games and other interesting interactions between devices, with very little set-up overhead.
+      <em>Gamepad</em> turns the smartphone into a simple game console pad, with a thumbstick and A/B buttons. Gamepad data flows through the server to the desktop browser using WebSockets/Phoenix Channels.
+    </p>
+    <p class="text-sm leading-relaxed text-base-content/80 mt-4">
+      <em>Gamepad RTC</em> is the same, but smartphone is transmitting directly to desktop browser using WebRTC.
+    </p>
+    <p class="text-sm leading-relaxed text-base-content/80 mt-4">
+      <em>Motion</em> uses the phone's orientation to move a ball along a track. Uses WebSockets.
+    </p>
+    <p class="text-sm leading-relaxed text-base-content/80 mt-4">
+      <em>Fish</em> uses the phone's orientation to detect direction and fish-like wiggling movement to control a fish in 3D space. Uses WebSockets.
+    </p>
+    <p class="text-sm leading-relaxed text-base-content/80 mt-4">
+      I think these POCs show that smartphones could be used to design games and other interesting interactions between devices, with very little set-up overhead.
     </p>
     <div class="modal-action">
       <form method="dialog"><button class="btn btn-sm">Close</button></form>
