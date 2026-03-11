@@ -4,6 +4,11 @@
 set -euo pipefail
 
 REMOTE="${1:?Usage: $0 user@host [remote_path]}"
+
+# Start a temporary ssh-agent and load the key once for all SSH/SCP calls.
+eval "$(ssh-agent -s)" > /dev/null
+trap 'ssh-agent -k > /dev/null' EXIT
+ssh-add
 REMOTE_PATH="${2:-~/gamepad}"
 IMAGE="gamepad:latest"
 TAR="/tmp/gamepad.tar"
