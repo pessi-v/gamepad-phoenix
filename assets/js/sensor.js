@@ -25,6 +25,18 @@ if (!el) {
     statusText.textContent = msg
   }
 
+  let wakeLock = null
+  async function requestWakeLock() {
+    try {
+      wakeLock = await navigator.wakeLock.request("screen")
+    } catch (err) {
+      console.warn("[Sensor] Wake lock failed:", err)
+    }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && wakeLock === null) requestWakeLock()
+  })
+
   function startSensors() {
     if (typeof DeviceOrientationEvent === "undefined") {
       setError("Motion sensors not supported on this device")
@@ -52,6 +64,7 @@ if (!el) {
       if (!started) {
         started = true
         clearTimeout(timeout)
+        requestWakeLock()
         channel.push("sensor_join", {})
         waitingEl.classList.add("hidden")
         activeEl.classList.remove("hidden")

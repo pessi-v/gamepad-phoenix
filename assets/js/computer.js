@@ -1,12 +1,14 @@
 import { Socket } from "phoenix"
+import { init as initSensorGraph } from "./sensor-graph-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
   // Not on the CS page
 } else {
-  const sessionId  = el.dataset.sessionId
-  const padUrl     = el.dataset.padUrl
-  const sensorUrl  = el.dataset.sensorUrl
+  const sessionId       = el.dataset.sessionId
+  const padUrl          = el.dataset.padUrl
+  const sensorUrl       = el.dataset.sensorUrl
+  const sensorGraphUrl  = el.dataset.sensorGraphUrl
 
   // QR codes
   const qrEl = document.getElementById("qr-code")
@@ -16,6 +18,10 @@ if (!el) {
   const sensorQrEl = document.getElementById("sensor-qr")
   if (sensorQrEl && typeof QRCode !== "undefined") {
     new QRCode(sensorQrEl, { text: sensorUrl, width: 200, height: 200 })
+  }
+  const sensorGraphQrEl = document.getElementById("sensor-graph-qr")
+  if (sensorGraphQrEl && typeof QRCode !== "undefined") {
+    new QRCode(sensorGraphQrEl, { text: sensorGraphUrl, width: 200, height: 200 })
   }
 
   const socket = new Socket("/socket", {})
@@ -271,4 +277,13 @@ if (!el) {
     .join()
     .receive("ok",   () => console.log("[CS] joined sensor:" + sessionId))
     .receive("error", (err) => console.error("[CS] sensor join error", err))
+
+  // --- Sensor Graph: live line graph of all sensor variables ---
+  const sensorGraphChannel = socket.channel(`sensor_graph:${sessionId}`, {})
+  initSensorGraph(sensorGraphChannel)
+
+  sensorGraphChannel
+    .join()
+    .receive("ok",    () => console.log("[CS] joined sensor_graph:" + sessionId))
+    .receive("error", (err) => console.error("[CS] sensor_graph join error", err))
 }
