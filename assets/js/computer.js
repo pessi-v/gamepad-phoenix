@@ -1,19 +1,26 @@
 import { Socket } from "phoenix"
 import { init as initSensorGraph } from "./sensor-graph-demo"
+import { init as initGamepadRtc } from "./gamepad-rtc-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
   // Not on the CS page
 } else {
-  const sessionId       = el.dataset.sessionId
-  const padUrl          = el.dataset.padUrl
-  const sensorUrl       = el.dataset.sensorUrl
-  const sensorGraphUrl  = el.dataset.sensorGraphUrl
+  const sessionId             = el.dataset.sessionId
+  const padUrl                = el.dataset.padUrl
+  const sensorUrl             = el.dataset.sensorUrl
+  const sensorGraphUrl        = el.dataset.sensorGraphUrl
+  const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
+  const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
 
   // QR codes
   const qrEl = document.getElementById("qr-code")
   if (qrEl && typeof QRCode !== "undefined") {
     new QRCode(qrEl, { text: padUrl, width: 200, height: 200 })
+  }
+  const gamepadRtcQrEl = document.getElementById("gamepad-rtc-qr")
+  if (gamepadRtcQrEl && typeof QRCode !== "undefined") {
+    new QRCode(gamepadRtcQrEl, { text: gamepadRtcUrl, width: 200, height: 200 })
   }
   const sensorQrEl = document.getElementById("sensor-qr")
   if (sensorQrEl && typeof QRCode !== "undefined") {
@@ -93,6 +100,15 @@ if (!el) {
     .join()
     .receive("ok",   () => console.log("[CS] joined game:" + sessionId))
     .receive("error", (err) => console.error("[CS] game join error", err))
+
+  // --- Gamepad RTC ---
+  const gamepadRtcChannel = socket.channel(`game:${gamepadRtcSessionId}`, {})
+  initGamepadRtc(gamepadRtcChannel)
+
+  gamepadRtcChannel
+    .join()
+    .receive("ok",    () => console.log("[CS] joined game:" + gamepadRtcSessionId))
+    .receive("error", (err) => console.error("[CS] gamepad-rtc join error", err))
 
   // --- Sensor: accelerometer-driven physics ball with track game ---
   const sensorArea      = document.getElementById("sensor-area")
