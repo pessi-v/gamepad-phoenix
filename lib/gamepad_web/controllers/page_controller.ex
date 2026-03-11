@@ -8,13 +8,15 @@ defmodule GamepadWeb.PageController do
     sensor_url             = url(~p"/sensor/#{session_id}")
     sensor_graph_url       = url(~p"/sensor-graph/#{session_id}")
     gamepad_rtc_url        = url(~p"/pad/#{gamepad_rtc_session_id}")
+    sc_pad_url             = url(~p"/sc-pad")
     render(conn, :home,
       session_id: session_id,
       pad_url: pad_url,
       sensor_url: sensor_url,
       sensor_graph_url: sensor_graph_url,
       gamepad_rtc_url: gamepad_rtc_url,
-      gamepad_rtc_session_id: gamepad_rtc_session_id
+      gamepad_rtc_session_id: gamepad_rtc_session_id,
+      sc_pad_url: sc_pad_url
     )
   end
 end

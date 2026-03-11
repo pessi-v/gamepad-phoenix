@@ -1,6 +1,8 @@
 import { Socket } from "phoenix"
+import QRCode from "easyqrcodejs"
 import { init as initSensorGraph } from "./sensor-graph-demo"
 import { init as initGamepadRtc } from "./gamepad-rtc-demo"
+import { init as initSmartController } from "./smartcontroller-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
@@ -12,24 +14,13 @@ if (!el) {
   const sensorGraphUrl        = el.dataset.sensorGraphUrl
   const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
   const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
+  const scPadUrl             = el.dataset.scPadUrl
 
   // QR codes
-  const qrEl = document.getElementById("qr-code")
-  if (qrEl && typeof QRCode !== "undefined") {
-    new QRCode(qrEl, { text: padUrl, width: 200, height: 200 })
-  }
-  const gamepadRtcQrEl = document.getElementById("gamepad-rtc-qr")
-  if (gamepadRtcQrEl && typeof QRCode !== "undefined") {
-    new QRCode(gamepadRtcQrEl, { text: gamepadRtcUrl, width: 200, height: 200 })
-  }
-  const sensorQrEl = document.getElementById("sensor-qr")
-  if (sensorQrEl && typeof QRCode !== "undefined") {
-    new QRCode(sensorQrEl, { text: sensorUrl, width: 200, height: 200 })
-  }
-  const sensorGraphQrEl = document.getElementById("sensor-graph-qr")
-  if (sensorGraphQrEl && typeof QRCode !== "undefined") {
-    new QRCode(sensorGraphQrEl, { text: sensorGraphUrl, width: 200, height: 200 })
-  }
+  new QRCode(document.getElementById("qr-code"),         { text: padUrl,         width: 200, height: 200 })
+  new QRCode(document.getElementById("gamepad-rtc-qr"),  { text: gamepadRtcUrl,  width: 200, height: 200 })
+  new QRCode(document.getElementById("sensor-qr"),       { text: sensorUrl,      width: 200, height: 200 })
+  new QRCode(document.getElementById("sensor-graph-qr"), { text: sensorGraphUrl, width: 200, height: 200 })
 
   const socket = new Socket("/socket", {})
   socket.connect()
@@ -293,6 +284,9 @@ if (!el) {
     .join()
     .receive("ok",   () => console.log("[CS] joined sensor:" + sessionId))
     .receive("error", (err) => console.error("[CS] sensor join error", err))
+
+  // --- SmartController: P2P WebRTC via SmartController library ---
+  initSmartController(scPadUrl)
 
   // --- Sensor Graph: live line graph of all sensor variables ---
   const sensorGraphChannel = socket.channel(`sensor_graph:${sessionId}`, {})

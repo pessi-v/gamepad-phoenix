@@ -1,5 +1,8 @@
 {
   "dependencies": {
+    "easyqrcodejs": "^4.6.2",
+    "nipplejs": "^0.10.2",
+    "smartcontroller": "^3.2.8",
     "three": "^0.183.2"
   }
 }

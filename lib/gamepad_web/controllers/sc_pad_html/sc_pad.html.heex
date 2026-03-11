@@ -1,0 +1,65 @@
+<div id="sc-pad-data"></div>
+
+<div style="position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;">
+
+  <%!-- Tab bar --%>
+  <div role="tablist" class="tabs tabs-border bg-base-100 shrink-0" style="touch-action:manipulation;">
+    <button role="tab" class="tab tab-active flex-1" data-tab="joystick">Joystick</button>
+    <button role="tab" class="tab flex-1" data-tab="nes">NES</button>
+    <button role="tab" class="tab flex-1" data-tab="touchpad">Touchpad</button>
+    <button role="tab" class="tab flex-1" data-tab="scroll">Scroll</button>
+  </div>
+
+  <%!-- Controller area --%>
+  <div style="flex:1;position:relative;overflow:hidden;">
+
+    <%!-- Joystick zone --%>
+    <div id="joystick-zone" data-zone="joystick"
+         style="position:absolute;inset:0;touch-action:none;"></div>
+
+    <%!-- NES zone --%>
+    <div id="nes-zone" data-zone="nes"
+         class="select-none"
+         style="position:absolute;inset:0;touch-action:none;display:none;">
+      <%!-- D-pad --%>
+      <div style="position:absolute;bottom:2.5rem;left:2rem;">
+        <div style="display:grid;grid-template-columns:repeat(3,3.5rem);grid-template-rows:repeat(3,3.5rem);gap:3px;">
+          <div></div>
+          <button class="btn btn-square bg-base-300 border-0 text-lg" data-nes-button="up">↑</button>
+          <div></div>
+          <button class="btn btn-square bg-base-300 border-0 text-lg" data-nes-button="left">←</button>
+          <div class="rounded bg-base-300"></div>
+          <button class="btn btn-square bg-base-300 border-0 text-lg" data-nes-button="right">→</button>
+          <div></div>
+          <button class="btn btn-square bg-base-300 border-0 text-lg" data-nes-button="down">↓</button>
+          <div></div>
+        </div>
+      </div>
+      <%!-- Start / Select --%>
+      <div style="position:absolute;bottom:3rem;left:50%;transform:translateX(-50%);display:flex;gap:0.75rem;">
+        <button class="btn btn-xs bg-base-300 border-0" data-nes-button="select">Select</button>
+        <button class="btn btn-xs bg-base-300 border-0" data-nes-button="start">Start</button>
+      </div>
+      <%!-- A / B --%>
+      <div style="position:absolute;bottom:2.5rem;right:2rem;display:flex;gap:1rem;align-items:center;">
+        <button class="btn btn-circle btn-lg bg-yellow-500 border-0 text-white" data-nes-button="b">B</button>
+        <button class="btn btn-circle btn-lg bg-purple-500 border-0 text-white" data-nes-button="a">A</button>
+      </div>
+    </div>
+
+    <%!-- Touchpad zone --%>
+    <div id="touchpad-zone" data-zone="touchpad"
+         style="position:absolute;inset:0;touch-action:none;display:none;align-items:center;justify-content:center;">
+      <span class="text-base-content/30 text-sm pointer-events-none select-none">Touch anywhere</span>
+    </div>
+
+    <%!-- Scroll zone --%>
+    <div id="scroll-zone" data-zone="scroll"
+         style="position:absolute;inset:0;touch-action:none;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
+      <span class="text-base-content/20 text-5xl pointer-events-none select-none">↑</span>
+      <span class="text-base-content/30 text-sm pointer-events-none select-none">Swipe to scroll</span>
+      <span class="text-base-content/20 text-5xl pointer-events-none select-none">↓</span>
+    </div>
+
+  </div>
+</div>
