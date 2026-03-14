@@ -1,6 +1,7 @@
 import { Socket } from "phoenix"
 import { init as initSensorGraph } from "./sensor-graph-demo"
 import { init as initGamepadRtc } from "./gamepad-rtc-demo"
+import { createRtcChannel } from "./gamepad-rtc"
 
 const el = document.getElementById("cs-data")
 if (!el) {
@@ -102,10 +103,10 @@ if (!el) {
     .receive("error", (err) => console.error("[CS] game join error", err))
 
   // --- Gamepad RTC ---
-  const gamepadRtcChannel = socket.channel(`game:${gamepadRtcSessionId}`, {})
-  initGamepadRtc(gamepadRtcChannel)
+  const gamepadRtcSignal = socket.channel(`game:${gamepadRtcSessionId}`, {})
+  initGamepadRtc(createRtcChannel(gamepadRtcSignal))
 
-  gamepadRtcChannel
+  gamepadRtcSignal
     .join()
     .receive("ok",    () => console.log("[CS] joined game:" + gamepadRtcSessionId))
     .receive("error", (err) => console.error("[CS] gamepad-rtc join error", err))

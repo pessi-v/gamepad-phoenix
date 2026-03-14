@@ -25,6 +25,21 @@ defmodule GamepadWeb.GameChannel do
     {:noreply, socket}
   end
 
+  def handle_in("rtc_offer", payload, socket) do
+    broadcast_from!(socket, "rtc_offer", payload)
+    {:noreply, socket}
+  end
+
+  def handle_in("rtc_answer", payload, socket) do
+    broadcast_from!(socket, "rtc_answer", payload)
+    {:noreply, socket}
+  end
+
+  def handle_in("rtc_ice", payload, socket) do
+    broadcast_from!(socket, "rtc_ice", payload)
+    {:noreply, socket}
+  end
+
   @impl true
   def terminate(_reason, %{assigns: %{role: :pad}} = socket) do
     broadcast!(socket, "pad_disconnected", %{})

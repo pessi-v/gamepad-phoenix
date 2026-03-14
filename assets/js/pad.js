@@ -44,6 +44,44 @@ if (!el) {
 
   window.addEventListener("beforeunload", () => channel.leave());
 
+  // --- WebRTC (phone side) ---
+  // If the desktop initiates a WebRTC offer we switch all game events to the
+  // data channel so they bypass the server entirely.
+  let pc = null;
+  let dc = null;
+
+  function send(event, payload) {
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ event, payload }));
+    } else {
+      channel.push(event, payload);
+    }
+  }
+
+  channel.on("rtc_offer", async ({ sdp, type }) => {
+    console.log("[PS] received rtc_offer, setting up WebRTC");
+    pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+    pc.ondatachannel = ({ channel: dataChannel }) => {
+      dc = dataChannel;
+      dc.onopen  = () => console.log("[PS] data channel open");
+      dc.onclose = () => { dc = null; };
+    };
+
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) channel.push("rtc_ice", { candidate: candidate.toJSON() });
+    };
+
+    await pc.setRemoteDescription({ sdp, type });
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    channel.push("rtc_answer", { sdp: answer.sdp, type: answer.type });
+  });
+
+  channel.on("rtc_ice", async ({ candidate }) => {
+    if (pc) await pc.addIceCandidate(candidate);
+  });
+
   // --- Thumbstick ---
   const base = document.getElementById("thumbstick-base");
   const nub = document.getElementById("thumbstick-nub");
@@ -60,12 +98,12 @@ if (!el) {
     }
 
     nub.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    channel.push("stick", { x: dx / maxDist, y: dy / maxDist });
+    send("stick", { x: dx / maxDist, y: dy / maxDist });
   }
 
   function stickRelease() {
     nub.style.transform = "translate(-50%, -50%)";
-    channel.push("stick", { x: 0, y: 0 });
+    send("stick", { x: 0, y: 0 });
   }
 
   function offsetFromCenter(clientX, clientY) {
@@ -139,16 +177,16 @@ if (!el) {
 
     btn.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      channel.push("button_down", { button });
+      send("button_down", { button });
     }, { passive: false });
 
     btn.addEventListener("touchend", (e) => {
       e.preventDefault();
-      channel.push("button_up", { button });
+      send("button_up", { button });
     }, { passive: false });
 
-    btn.addEventListener("mousedown", () => channel.push("button_down", { button }));
-    btn.addEventListener("mouseup", () => channel.push("button_up", { button }));
-    btn.addEventListener("mouseleave", () => channel.push("button_up", { button }));
+    btn.addEventListener("mousedown", () => send("button_down", { button }));
+    btn.addEventListener("mouseup", () => send("button_up", { button }));
+    btn.addEventListener("mouseleave", () => send("button_up", { button }));
   });
 }
