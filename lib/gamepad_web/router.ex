@@ -18,6 +18,7 @@ defmodule GamepadWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/retroarch", RetroarchController, :index
     get "/pad/:session_id", PadController, :pad
     get "/sensor/:session_id", SensorController, :sensor
     get "/sensor-graph/:session_id", SensorGraphController, :sensor_graph

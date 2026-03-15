@@ -1,0 +1,20 @@
+<div id="ra-data" data-session-id={@session_id} data-pad-url={@pad_url}></div>
+
+<div class="fixed top-4 left-4 z-50">
+  <a href="/" class="text-2xl text-base-content/50 hover:text-base-content transition-colors">← Back</a>
+</div>
+
+<div id="ra-qr-panel" class="fixed top-4 right-4 z-50 flex flex-col items-center gap-2">
+  <div id="ra-qr" class="p-3 bg-white rounded-box shadow"></div>
+  <span id="ra-status" class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Scan to connect</span>
+</div>
+
+<div class="min-h-screen flex flex-col">
+  <iframe
+    src="/retroarch/index.html"
+    class="flex-1 w-full border-0"
+    style="min-height: 100vh;"
+    allow="gamepad; fullscreen"
+    id="retroarch-frame"
+  ></iframe>
+</div>
