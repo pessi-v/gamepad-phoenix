@@ -10,10 +10,14 @@
     </div>
 
 
-    <!-- A / B buttons (right side) -->
-    <div class="flex gap-6 h-[184px]">
-      <button class="self-end action-btn bg-yellow-500 text-white mb-10" data-button="b">B</button>
-      <button class="self-start action-btn bg-purple-500 text-white mt-10" data-button="a">A</button>
+    <!-- A/B button field (right side) -->
+    <div id="button-field" class="relative rounded-xl bg-base-300 touch-manipulation select-none" style="width:200px;height:184px;">
+      <div id="field-b-highlight" class="pointer-events-none absolute left-0 top-0 h-full rounded-l-xl" style="width:55%;transition:background 75ms"></div>
+      <div id="field-a-highlight" class="pointer-events-none absolute right-0 top-0 h-full rounded-r-xl" style="width:55%;transition:background 75ms"></div>
+      <div class="absolute inset-0 flex items-center pointer-events-none">
+        <span class="flex-1 text-center text-2xl font-bold text-yellow-500/70">B</span>
+        <span class="flex-1 text-center text-2xl font-bold text-purple-500/70">A</span>
+      </div>
     </div>
   </div>
     <!-- Select / Start (center) -->

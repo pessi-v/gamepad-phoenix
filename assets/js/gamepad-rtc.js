@@ -35,7 +35,7 @@ export function createRtcChannel(signalingChannel) {
     }
 
     pc.onconnectionstatechange = () => {
-      if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
+      if (["failed", "closed"].includes(pc.connectionState)) {
         emit("pad_disconnected", {})
       }
     }

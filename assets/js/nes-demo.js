@@ -91,7 +91,7 @@ export function init(channel) {
     })
 
   channel.on("pad_connected",    () => area.classList.remove("hidden"))
-  channel.on("pad_disconnected", () => { stopLoop(); area.classList.add("hidden") })
+  channel.on("pad_disconnected", () => area.classList.add("hidden"))
   channel.on("stick", ({ x, y }) => applyDpad(x, y))
 
   const BUTTON_MAP = {
@@ -116,13 +116,13 @@ export function init(channel) {
   function startLoop() {
     if (animFrame) return
     function loop() {
-      nes.frame()
+      try {
+        nes.frame()
+      } catch (e) {
+        console.error("[NES] emulator error:", e)
+      }
       animFrame = requestAnimationFrame(loop)
     }
     animFrame = requestAnimationFrame(loop)
-  }
-
-  function stopLoop() {
-    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null }
   }
 }

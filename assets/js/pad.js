@@ -171,22 +171,56 @@ if (!el) {
     stickRelease();
   });
 
-  // --- A / B buttons ---
+  // --- Select / Start buttons ---
   document.querySelectorAll("[data-button]").forEach((btn) => {
     const button = btn.dataset.button;
-
-    btn.addEventListener("touchstart", (e) => {
+    btn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
       send("button_down", { button });
     }, { passive: false });
-
-    btn.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      send("button_up", { button });
-    }, { passive: false });
-
-    btn.addEventListener("mousedown", () => send("button_down", { button }));
-    btn.addEventListener("mouseup", () => send("button_up", { button }));
-    btn.addEventListener("mouseleave", () => send("button_up", { button }));
+    btn.addEventListener("pointerup",     () => send("button_up", { button }));
+    btn.addEventListener("pointercancel", () => send("button_up", { button }));
   });
+
+  // --- A/B button field ---
+  // Left zone = B, right zone = A, middle overlap = both.
+  // Each active pointer contributes independently so sliding across zones
+  // naturally presses both buttons at once.
+  const buttonField   = document.getElementById("button-field");
+  const fieldBLight   = document.getElementById("field-b-highlight");
+  const fieldALight   = document.getElementById("field-a-highlight");
+  const activePointers = new Map(); // pointerId → { b, a }
+  let fieldB = false, fieldA = false;
+
+  function pointerZone(e) {
+    const rect = buttonField.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    return { b: x < 0.55, a: x > 0.45 };
+  }
+
+  function syncField() {
+    let b = false, a = false;
+    for (const z of activePointers.values()) { if (z.b) b = true; if (z.a) a = true; }
+    if (b !== fieldB) { send(b ? "button_down" : "button_up", { button: "b" }); fieldB = b; }
+    if (a !== fieldA) { send(a ? "button_down" : "button_up", { button: "a" }); fieldA = a; }
+    fieldBLight.style.background = b ? "rgba(234,179,8,0.35)"  : "";
+    fieldALight.style.background = a ? "rgba(168,85,247,0.35)" : "";
+  }
+
+  buttonField.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    buttonField.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId, pointerZone(e));
+    syncField();
+  }, { passive: false });
+
+  buttonField.addEventListener("pointermove", (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, pointerZone(e));
+    syncField();
+  });
+
+  buttonField.addEventListener("pointerup",     (e) => { activePointers.delete(e.pointerId); syncField(); });
+  buttonField.addEventListener("pointercancel", (e) => { activePointers.delete(e.pointerId); syncField(); });
 }
