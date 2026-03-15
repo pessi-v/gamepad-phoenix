@@ -78,7 +78,7 @@ export function init(channel) {
     soundPrompt.classList.add("hidden")
   }, { once: true })
 
-  fetch("/assets/mario-adventure-3.nes")
+  fetch("/roms/mario-adventure-3.nes")
     .then(r => r.arrayBuffer())
     .then(romBuf => {
       const bytes = new Uint8Array(romBuf)
@@ -90,8 +90,14 @@ export function init(channel) {
       startLoop()
     })
 
-  channel.on("pad_connected",    () => area.classList.remove("hidden"))
-  channel.on("pad_disconnected", () => area.classList.add("hidden"))
+  channel.on("pad_connected", () => {
+    area.classList.remove("hidden")
+    audioCtx?.resume()
+  })
+  channel.on("pad_disconnected", () => {
+    area.classList.add("hidden")
+    audioCtx?.suspend()
+  })
   channel.on("stick", ({ x, y }) => applyDpad(x, y))
 
   const BUTTON_MAP = {
