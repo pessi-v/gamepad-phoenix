@@ -28,6 +28,9 @@ gamepad-*.tar
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
 
+# RetroArch WASM build — large binary files, copy from buildbot manually
+/priv/static/retroarch/
+
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
