@@ -15,13 +15,13 @@ export function init(channel) {
   const buf8      = new Uint8ClampedArray(buf)
   const buf32     = new Uint32Array(buf)
 
-  // Audio — plain ScriptProcessorNode avoids Blob URL / CSP issues with
-  // AudioWorklet. Created on first click to satisfy the autoplay policy.
+  // Create AudioContext immediately so we can read its native sample rate and
+  // pass it to jsnes — mismatched rates (e.g. jsnes 44100 vs ctx 48000) cause
+  // chronic underruns and crackling. It starts suspended; resumed on gesture.
   const sampleQueue = []
-  let audioCtx = null
+  const audioCtx = new AudioContext()
 
   function startAudio() {
-    audioCtx = new AudioContext()
     const processor = audioCtx.createScriptProcessor(4096, 0, 1)
     processor.onaudioprocess = (e) => {
       const out = e.outputBuffer.getChannelData(0)
@@ -34,10 +34,10 @@ export function init(channel) {
 
   const nes = new jsnes.NES({
     emulateSound: true,
-    sampleRate: 44100,
+    sampleRate: audioCtx.sampleRate,
     onAudioSample: (left, right) => {
       sampleQueue.push((left + right) / 2)
-      // Prevent unbounded growth if audio isn't started yet
+      // Prevent unbounded growth while audio is suspended
       if (sampleQueue.length > 8192) sampleQueue.splice(0, 4096)
     },
     onFrame(frameBuffer) {
@@ -76,7 +76,7 @@ export function init(channel) {
   // Resume audio on any user interaction — satisfies autoplay policy without
   // requiring a dedicated click prompt.
   function resumeAudio() {
-    audioCtx?.resume()
+    audioCtx.resume()
     soundPrompt?.classList.add("hidden")
   }
   window.addEventListener("pointerdown", resumeAudio)
@@ -97,11 +97,11 @@ export function init(channel) {
 
   channel.on("pad_connected", () => {
     area.classList.remove("hidden")
-    audioCtx?.resume()
+    audioCtx.resume()
   })
   channel.on("pad_disconnected", () => {
     area.classList.add("hidden")
-    audioCtx?.suspend()
+    audioCtx.suspend()
   })
   channel.on("stick", ({ x, y }) => applyDpad(x, y))
 
