@@ -50,6 +50,15 @@ if (!el) {
   let pc = null;
   let dc = null;
 
+  const CHUNK_SIZE = 64 * 1024;
+  function chunkSend(message) {
+    if (message.length <= CHUNK_SIZE) { dc.send(message); return; }
+    const id = Date.now().toString(36);
+    const total = Math.ceil(message.length / CHUNK_SIZE);
+    for (let i = 0; i < total; i++)
+      dc.send(JSON.stringify({ _c: 1, id, i, n: total, d: message.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE) }));
+  }
+
   function send(event, payload) {
     if (dc && dc.readyState === "open") {
       dc.send(JSON.stringify({ event, payload }));
@@ -67,7 +76,7 @@ if (!el) {
       dc.onopen = () => {
         console.log("[PS] data channel open");
         const saved = localStorage.getItem("nes-save-state");
-        if (saved) dc.send(JSON.stringify({ event: "nes_save_state", payload: { state: saved } }));
+        if (saved) chunkSend(JSON.stringify({ event: "nes_save_state", payload: { state: saved } }));
       };
       dc.onclose = () => { dc = null; };
       dc.onmessage = ({ data }) => {
