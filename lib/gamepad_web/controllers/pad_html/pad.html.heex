@@ -10,14 +10,12 @@
     </div>
 
 
-    <!-- A/B button field (right side) -->
+    <!-- A/B button field (right side) — diagonal \ split: B lower-left, A upper-right -->
     <div id="button-field" class="relative rounded-xl bg-base-300 touch-manipulation select-none" style="width:200px;height:184px;">
-      <div id="field-b-highlight" class="pointer-events-none absolute left-0 top-0 h-full rounded-l-xl" style="width:55%;transition:background 75ms"></div>
-      <div id="field-a-highlight" class="pointer-events-none absolute right-0 top-0 h-full rounded-r-xl" style="width:55%;transition:background 75ms"></div>
-      <div class="absolute inset-0 flex items-center pointer-events-none">
-        <span class="flex-1 text-center text-2xl font-bold text-yellow-500/70">B</span>
-        <span class="flex-1 text-center text-2xl font-bold text-purple-500/70">A</span>
-      </div>
+      <div id="field-b-highlight" class="pointer-events-none absolute inset-0" style="clip-path:polygon(0% 0%, 0% 100%, 100% 100%);transition:background 75ms"></div>
+      <div id="field-a-highlight" class="pointer-events-none absolute inset-0" style="clip-path:polygon(0% 0%, 100% 0%, 100% 100%);transition:background 75ms"></div>
+      <span class="absolute bottom-3 left-4 text-2xl font-bold text-yellow-500/70 pointer-events-none">B</span>
+      <span class="absolute top-3 right-4 text-2xl font-bold text-purple-500/70 pointer-events-none">A</span>
     </div>
   </div>
     <!-- Select / Start (center) -->

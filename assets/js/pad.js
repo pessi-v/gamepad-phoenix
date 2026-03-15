@@ -196,7 +196,10 @@ if (!el) {
   function pointerZone(e) {
     const rect = buttonField.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
-    return { b: x < 0.55, a: x > 0.45 };
+    const y = (e.clientY - rect.top) / rect.height;
+    // "\" diagonal: d > 0 = upper-right (A), d < 0 = lower-left (B), ±0.1 overlap
+    const d = x - y;
+    return { b: d < 0.1, a: d > -0.1 };
   }
 
   function syncField() {
