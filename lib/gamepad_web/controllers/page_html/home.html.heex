@@ -38,7 +38,9 @@
   data-sensor-url={@sensor_url}
   data-sensor-graph-url={@sensor_graph_url}
   data-gamepad-rtc-url={@gamepad_rtc_url}
-  data-gamepad-rtc-session-id={@gamepad_rtc_session_id}></div>
+  data-gamepad-rtc-session-id={@gamepad_rtc_session_id}
+  data-gamepad-api-url={@gamepad_api_url}
+  data-gamepad-api-session-id={@gamepad_api_session_id}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
 
@@ -48,6 +50,9 @@
     </div>
     <div id="gamepad-rtc-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
       <div id="gamepad-rtc-object" class="absolute w-12 h-12 rounded-full bg-secondary"></div>
+    </div>
+    <div id="gamepad-api-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
+      <div id="gamepad-api-object" class="absolute w-12 h-12 rounded-full bg-accent"></div>
     </div>
     <div id="sensor-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
       <canvas id="track-canvas" class="absolute inset-0 w-full h-full" style="pointer-events:none;z-index:0"></canvas>
@@ -71,6 +76,10 @@
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad RTC</p>
       <div id="gamepad-rtc-qr" class="p-4 bg-white rounded-box shadow"></div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad API</p>
+      <div id="gamepad-api-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Motion</p>

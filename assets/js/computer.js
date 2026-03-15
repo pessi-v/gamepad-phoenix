@@ -2,6 +2,8 @@ import { Socket } from "phoenix"
 import { init as initSensorGraph } from "./sensor-graph-demo"
 import { init as initGamepadRtc } from "./gamepad-rtc-demo"
 import { createRtcChannel } from "./gamepad-rtc"
+import { installGamepadShim } from "./gamepad-api-shim"
+import { init as initGamepadApi } from "./gamepad-api-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
@@ -13,6 +15,7 @@ if (!el) {
   const sensorGraphUrl        = el.dataset.sensorGraphUrl
   const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
   const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
+  const gamepadApiUrl        = el.dataset.gamepadApiUrl
 
   // QR codes
   const qrEl = document.getElementById("qr-code")
@@ -22,6 +25,10 @@ if (!el) {
   const gamepadRtcQrEl = document.getElementById("gamepad-rtc-qr")
   if (gamepadRtcQrEl && typeof QRCode !== "undefined") {
     new QRCode(gamepadRtcQrEl, { text: gamepadRtcUrl, width: 200, height: 200 })
+  }
+  const gamepadApiQrEl = document.getElementById("gamepad-api-qr")
+  if (gamepadApiQrEl && typeof QRCode !== "undefined") {
+    new QRCode(gamepadApiQrEl, { text: gamepadApiUrl, width: 200, height: 200 })
   }
   const sensorQrEl = document.getElementById("sensor-qr")
   if (sensorQrEl && typeof QRCode !== "undefined") {
@@ -110,6 +117,17 @@ if (!el) {
     .join()
     .receive("ok",    () => console.log("[CS] joined game:" + gamepadRtcSessionId))
     .receive("error", (err) => console.error("[CS] gamepad-rtc join error", err))
+
+  // --- Gamepad API ---
+  const gamepadApiSessionId = el.dataset.gamepadApiSessionId
+  const gamepadApiSignal    = socket.channel(`game:${gamepadApiSessionId}`, {})
+  installGamepadShim(createRtcChannel(gamepadApiSignal))
+  initGamepadApi()
+
+  gamepadApiSignal
+    .join()
+    .receive("ok",    () => console.log("[CS] joined game:" + gamepadApiSessionId))
+    .receive("error", (err) => console.error("[CS] gamepad-api join error", err))
 
   // --- Sensor: accelerometer-driven physics ball with track game ---
   const sensorArea      = document.getElementById("sensor-area")
