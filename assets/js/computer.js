@@ -4,6 +4,7 @@ import { init as initGamepadRtc } from "./gamepad-rtc-demo"
 import { createRtcChannel } from "./gamepad-rtc"
 import { installGamepadShim } from "./gamepad-api-shim"
 import { init as initGamepadApi } from "./gamepad-api-demo"
+import { init as initNes } from "./nes-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
@@ -16,6 +17,7 @@ if (!el) {
   const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
   const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
   const gamepadApiUrl        = el.dataset.gamepadApiUrl
+  const nesUrl               = el.dataset.nesUrl
 
   // QR codes
   const qrEl = document.getElementById("qr-code")
@@ -29,6 +31,10 @@ if (!el) {
   const gamepadApiQrEl = document.getElementById("gamepad-api-qr")
   if (gamepadApiQrEl && typeof QRCode !== "undefined") {
     new QRCode(gamepadApiQrEl, { text: gamepadApiUrl, width: 200, height: 200 })
+  }
+  const nesQrEl = document.getElementById("nes-qr")
+  if (nesQrEl && typeof QRCode !== "undefined") {
+    new QRCode(nesQrEl, { text: nesUrl, width: 200, height: 200 })
   }
   const sensorQrEl = document.getElementById("sensor-qr")
   if (sensorQrEl && typeof QRCode !== "undefined") {
@@ -128,6 +134,16 @@ if (!el) {
     .join()
     .receive("ok",    () => console.log("[CS] joined game:" + gamepadApiSessionId))
     .receive("error", (err) => console.error("[CS] gamepad-api join error", err))
+
+  // --- NES ---
+  const nesSessionId = el.dataset.nesSessionId
+  const nesSignal    = socket.channel(`game:${nesSessionId}`, {})
+  initNes(createRtcChannel(nesSignal))
+
+  nesSignal
+    .join()
+    .receive("ok",    () => console.log("[CS] joined game:" + nesSessionId))
+    .receive("error", (err) => console.error("[CS] nes join error", err))
 
   // --- Sensor: accelerometer-driven physics ball with track game ---
   const sensorArea      = document.getElementById("sensor-area")

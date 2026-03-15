@@ -40,7 +40,9 @@
   data-gamepad-rtc-url={@gamepad_rtc_url}
   data-gamepad-rtc-session-id={@gamepad_rtc_session_id}
   data-gamepad-api-url={@gamepad_api_url}
-  data-gamepad-api-session-id={@gamepad_api_session_id}></div>
+  data-gamepad-api-session-id={@gamepad_api_session_id}
+  data-nes-url={@nes_url}
+  data-nes-session-id={@nes_session_id}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
 
@@ -64,6 +66,16 @@
     </div>
   </div>
 
+  <div id="nes-area" class="hidden relative rounded-box overflow-hidden bg-black" style="width: 512px; height: 480px;">
+    <canvas id="nes-canvas" style="image-rendering: pixelated; width: 512px; height: 480px;"></canvas>
+    <div id="nes-rom-prompt" class="absolute inset-0 flex items-center justify-center">
+      <p class="text-white/50 text-sm">Loading ROM…</p>
+    </div>
+    <div id="nes-sound-prompt" class="hidden absolute bottom-2 right-2 text-white/50 text-xs cursor-pointer select-none">
+      🔇 click for sound
+    </div>
+  </div>
+
   <div id="graph-area" class="hidden w-full max-w-5xl rounded-box overflow-hidden bg-base-200" style="height: 280px;">
     <canvas id="graph-canvas" style="width:100%;height:100%;display:block;"></canvas>
   </div>
@@ -84,6 +96,10 @@
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Motion</p>
       <div id="sensor-qr" class="p-4 bg-white rounded-box shadow"></div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">NES</p>
+      <div id="nes-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Fish</p>
