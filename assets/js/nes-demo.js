@@ -73,10 +73,14 @@ export function init(channel) {
     dpad = next
   }
 
-  area.addEventListener("click", () => {
-    startAudio()
-    soundPrompt.classList.add("hidden")
-  }, { once: true })
+  // Resume audio on any user interaction — satisfies autoplay policy without
+  // requiring a dedicated click prompt.
+  function resumeAudio() {
+    audioCtx?.resume()
+    soundPrompt?.classList.add("hidden")
+  }
+  window.addEventListener("pointerdown", resumeAudio)
+  window.addEventListener("keydown",     resumeAudio)
 
   fetch("/roms/mario-adventure-3.nes")
     .then(r => r.arrayBuffer())
@@ -86,7 +90,8 @@ export function init(channel) {
       for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
       nes.loadROM(str)
       romPrompt.classList.add("hidden")
-      soundPrompt.classList.remove("hidden")
+      soundPrompt?.classList.remove("hidden")
+      startAudio()
       startLoop()
     })
 

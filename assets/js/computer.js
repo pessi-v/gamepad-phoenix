@@ -2,8 +2,7 @@ import { Socket } from "phoenix"
 import { init as initSensorGraph } from "./sensor-graph-demo"
 import { init as initGamepadRtc } from "./gamepad-rtc-demo"
 import { createRtcChannel } from "./gamepad-rtc"
-import { installGamepadShim } from "./gamepad-api-shim"
-import { init as initGamepadApi } from "./gamepad-api-demo"
+
 import { init as initNes } from "./nes-demo"
 
 const el = document.getElementById("cs-data")
@@ -16,7 +15,6 @@ if (!el) {
   const sensorGraphUrl        = el.dataset.sensorGraphUrl
   const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
   const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
-  const gamepadApiUrl        = el.dataset.gamepadApiUrl
   const nesUrl               = el.dataset.nesUrl
 
   // QR codes
@@ -28,10 +26,7 @@ if (!el) {
   if (gamepadRtcQrEl && typeof QRCode !== "undefined") {
     new QRCode(gamepadRtcQrEl, { text: gamepadRtcUrl, width: 200, height: 200 })
   }
-  const gamepadApiQrEl = document.getElementById("gamepad-api-qr")
-  if (gamepadApiQrEl && typeof QRCode !== "undefined") {
-    new QRCode(gamepadApiQrEl, { text: gamepadApiUrl, width: 200, height: 200 })
-  }
+
   const nesQrEl = document.getElementById("nes-qr")
   if (nesQrEl && typeof QRCode !== "undefined") {
     new QRCode(nesQrEl, { text: nesUrl, width: 200, height: 200 })
@@ -123,17 +118,6 @@ if (!el) {
     .join()
     .receive("ok",    () => console.log("[CS] joined game:" + gamepadRtcSessionId))
     .receive("error", (err) => console.error("[CS] gamepad-rtc join error", err))
-
-  // --- Gamepad API ---
-  const gamepadApiSessionId = el.dataset.gamepadApiSessionId
-  const gamepadApiSignal    = socket.channel(`game:${gamepadApiSessionId}`, {})
-  installGamepadShim(createRtcChannel(gamepadApiSignal))
-  initGamepadApi()
-
-  gamepadApiSignal
-    .join()
-    .receive("ok",    () => console.log("[CS] joined game:" + gamepadApiSessionId))
-    .receive("error", (err) => console.error("[CS] gamepad-api join error", err))
 
   // --- NES ---
   const nesSessionId = el.dataset.nesSessionId
