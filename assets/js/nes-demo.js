@@ -1,11 +1,54 @@
 import * as jsnes from "jsnes"
 
 export function init(channel) {
+  const wrapper     = document.getElementById("nes-wrapper")
   const area        = document.getElementById("nes-area")
   const canvas      = document.getElementById("nes-canvas")
   const romPrompt   = document.getElementById("nes-rom-prompt")
   const soundPrompt = document.getElementById("nes-sound-prompt")
+  const saveBtn     = document.getElementById("nes-save-btn")
+  const loadBtn     = document.getElementById("nes-load-btn")
   if (!area || !canvas) return
+
+  const SAVE_KEY = "nes-quicksave"
+
+  // State received from phone before ROM is ready is held here and applied on load.
+  let pendingState = null
+  let romReady = false
+
+  function applyState(json) {
+    if (romReady) nes.fromJSON(JSON.parse(json))
+    else pendingState = json
+  }
+
+  function quickSave() {
+    const json = JSON.stringify(nes.toJSON())
+    localStorage.setItem(SAVE_KEY, json)
+    channel.send("nes_save_state", { state: json })
+    loadBtn.disabled = false
+  }
+
+  function quickLoad() {
+    const data = localStorage.getItem(SAVE_KEY)
+    if (data) applyState(data)
+  }
+
+  channel.on("nes_save_state", ({ state }) => {
+    localStorage.setItem(SAVE_KEY, state)
+    loadBtn.disabled = false
+    applyState(state)
+  })
+
+  saveBtn.addEventListener("click", quickSave)
+  loadBtn.addEventListener("click", quickLoad)
+
+  // Check for an existing save on init
+  if (localStorage.getItem(SAVE_KEY)) loadBtn.disabled = false
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "s" || e.key === "S") quickSave()
+    if (e.key === "r" || e.key === "R") quickLoad()
+  })
 
   canvas.width  = 256
   canvas.height = 240
@@ -89,6 +132,8 @@ export function init(channel) {
       let str = ""
       for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
       nes.loadROM(str)
+      romReady = true
+      if (pendingState) { nes.fromJSON(JSON.parse(pendingState)); pendingState = null }
       romPrompt.classList.add("hidden")
       soundPrompt?.classList.remove("hidden")
       startAudio()
@@ -96,11 +141,13 @@ export function init(channel) {
     })
 
   channel.on("pad_connected", () => {
-    area.classList.remove("hidden")
+    wrapper.classList.remove("hidden")
+    wrapper.classList.add("flex")
     audioCtx.resume()
   })
   channel.on("pad_disconnected", () => {
-    area.classList.add("hidden")
+    wrapper.classList.add("hidden")
+    wrapper.classList.remove("flex")
     audioCtx.suspend()
   })
   channel.on("stick", ({ x, y }) => applyDpad(x, y))

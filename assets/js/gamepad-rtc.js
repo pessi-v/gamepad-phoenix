@@ -5,6 +5,7 @@ const ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }]
 export function createRtcChannel(signalingChannel) {
   const handlers = {}
   let pc = null
+  let dc = null
 
   function emit(event, payload) {
     ;(handlers[event] || []).forEach(fn => fn(payload))
@@ -13,7 +14,7 @@ export function createRtcChannel(signalingChannel) {
   function initPC() {
     pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
-    const dc = pc.createDataChannel("gamepad")
+    dc = pc.createDataChannel("gamepad")
 
     dc.onopen = () => {
       console.log("[RTC] data channel open")
@@ -68,6 +69,10 @@ export function createRtcChannel(signalingChannel) {
     on(event, handler) {
       if (!handlers[event]) handlers[event] = []
       handlers[event].push(handler)
+    },
+    send(event, payload) {
+      if (dc && dc.readyState === "open")
+        dc.send(JSON.stringify({ event, payload }))
     }
   }
 }

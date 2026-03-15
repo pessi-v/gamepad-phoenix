@@ -64,8 +64,16 @@ if (!el) {
 
     pc.ondatachannel = ({ channel: dataChannel }) => {
       dc = dataChannel;
-      dc.onopen  = () => console.log("[PS] data channel open");
+      dc.onopen = () => {
+        console.log("[PS] data channel open");
+        const saved = localStorage.getItem("nes-save-state");
+        if (saved) dc.send(JSON.stringify({ event: "nes_save_state", payload: { state: saved } }));
+      };
       dc.onclose = () => { dc = null; };
+      dc.onmessage = ({ data }) => {
+        const { event, payload } = JSON.parse(data);
+        if (event === "nes_save_state") localStorage.setItem("nes-save-state", payload.state);
+      };
     };
 
     pc.onicecandidate = ({ candidate }) => {
@@ -177,10 +185,11 @@ if (!el) {
     btn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       btn.setPointerCapture(e.pointerId);
+      btn.classList.add("scale-90", "brightness-75");
       send("button_down", { button });
     }, { passive: false });
-    btn.addEventListener("pointerup",     () => send("button_up", { button }));
-    btn.addEventListener("pointercancel", () => send("button_up", { button }));
+    btn.addEventListener("pointerup",     () => { btn.classList.remove("scale-90", "brightness-75"); send("button_up", { button }); });
+    btn.addEventListener("pointercancel", () => { btn.classList.remove("scale-90", "brightness-75"); send("button_up", { button }); });
   });
 
   // --- A/B button field ---

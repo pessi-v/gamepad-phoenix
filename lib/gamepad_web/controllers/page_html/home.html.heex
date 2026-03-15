@@ -62,13 +62,19 @@
     </div>
   </div>
 
-  <div id="nes-area" class="hidden relative rounded-box overflow-hidden bg-black" style="width: 512px; height: 480px;">
-    <canvas id="nes-canvas" style="image-rendering: pixelated; width: 512px; height: 480px;"></canvas>
-    <div id="nes-rom-prompt" class="absolute inset-0 flex items-center justify-center">
-      <p class="text-white/50 text-sm">Loading ROM…</p>
+  <div id="nes-wrapper" class="hidden flex-row gap-3 items-start">
+    <div id="nes-area" class="relative rounded-box overflow-hidden bg-black" style="width: 512px; height: 480px;">
+      <canvas id="nes-canvas" style="image-rendering: pixelated; width: 512px; height: 480px;"></canvas>
+      <div id="nes-rom-prompt" class="absolute inset-0 flex items-center justify-center">
+        <p class="text-white/50 text-sm">Loading ROM…</p>
+      </div>
+      <div id="nes-sound-prompt" class="hidden absolute bottom-2 right-2 text-white text-xs select-none rounded px-2 py-1 bg-black/55">
+        🔇 click anywhere for sound
+      </div>
     </div>
-    <div id="nes-sound-prompt" class="hidden absolute bottom-2 right-2 text-white text-xs select-none rounded px-2 py-1 bg-black/55">
-      🔇 click anywhere for sound
+    <div class="flex flex-col gap-2">
+      <button id="nes-save-btn" class="px-3 py-2 rounded-lg bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase transition-all duration-75">Save <span class="opacity-40 font-normal normal-case tracking-normal">[S]</span></button>
+      <button id="nes-load-btn" class="px-3 py-2 rounded-lg bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase transition-all duration-75 disabled:opacity-30" disabled>Load <span class="opacity-40 font-normal normal-case tracking-normal">[R]</span></button>
     </div>
   </div>
 
