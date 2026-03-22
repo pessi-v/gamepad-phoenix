@@ -1,0 +1,251 @@
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+
+export function init(channel) {
+  const graphArea   = document.getElementById("graph-area");
+  const graphCanvas = document.getElementById("graph-canvas");
+  const paddleCanvas = document.getElementById("paddle-canvas");
+
+  // ── Graph ─────────────────────────────────────────────────────────────────
+
+  const MAX_POINTS = 200;
+  const ROWS = [
+    {
+      label: "Orientation (°)",
+      keys: ["beta", "gamma", "alpha"],
+      seriesLabels: ["β", "γ", "α"],
+      min: -180,
+      max: 360,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
+    },
+    {
+      label: "Acceleration (m/s²)",
+      keys: ["ax", "ay", "az"],
+      seriesLabels: ["x", "y", "z"],
+      min: -20,
+      max: 20,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
+    },
+    {
+      label: "Rotation (°/s)",
+      keys: ["rx", "ry", "rz"],
+      seriesLabels: ["x", "y", "z"],
+      min: -360,
+      max: 360,
+      colors: ["#f87171", "#4ade80", "#60a5fa"],
+    },
+  ];
+
+  const data = {};
+  for (const row of ROWS)
+    for (const key of row.keys) data[key] = new Array(MAX_POINTS).fill(0);
+
+  function push(key, val) {
+    data[key].push(val != null ? val : 0);
+    if (data[key].length > MAX_POINTS) data[key].shift();
+  }
+
+  function renderGraph() {
+    const W = graphArea.clientWidth;
+    const H = graphArea.clientHeight;
+    if (graphCanvas.width !== W) graphCanvas.width = W;
+    if (graphCanvas.height !== H) graphCanvas.height = H;
+
+    const ctx = graphCanvas.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+
+    const LEFT = 46;
+    const RIGHT = 12;
+    const LABEL_H = 16;
+    const ROW_GAP = 8;
+    const plotW = W - LEFT - RIGHT;
+    const rowH = Math.floor((H - ROW_GAP * (ROWS.length - 1)) / ROWS.length);
+    const plotH = rowH - LABEL_H;
+
+    ROWS.forEach((row, ri) => {
+      const rowTop = ri * (rowH + ROW_GAP);
+      const plotTop = rowTop + LABEL_H;
+      const span = row.max - row.min;
+      const zeroY = plotTop + plotH * (1 - (0 - row.min) / span);
+
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.fillRect(LEFT, plotTop, plotW, plotH);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(LEFT, zeroY);
+      ctx.lineTo(LEFT + plotW, zeroY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.font = "9px monospace";
+      ctx.textAlign = "right";
+      ctx.fillText(row.max, LEFT - 2, plotTop + 8);
+      ctx.fillText(row.min, LEFT - 2, plotTop + plotH);
+      ctx.textAlign = "left";
+
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = "11px monospace";
+      ctx.fillText(row.label, LEFT, rowTop + 11);
+
+      let xCursor = LEFT + ctx.measureText(row.label + "   ").width;
+      row.keys.forEach((key, ki) => {
+        const cur = data[key][data[key].length - 1];
+        const valStr = `${row.seriesLabels[ki]}:${cur >= 0 ? "+" : ""}${cur.toFixed(1)}  `;
+        ctx.fillStyle = row.colors[ki];
+        ctx.fillText(valStr, xCursor, rowTop + 11);
+        xCursor += ctx.measureText(valStr).width;
+      });
+
+      row.keys.forEach((key, ki) => {
+        const vals = data[key];
+        ctx.strokeStyle = row.colors[ki];
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        vals.forEach((v, i) => {
+          const x = LEFT + (i / (MAX_POINTS - 1)) * plotW;
+          const y =
+            plotTop +
+            plotH * (1 - Math.max(0, Math.min(1, (v - row.min) / span)));
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    });
+  }
+
+  // ── Paddle (Three.js) ─────────────────────────────────────────────────────
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas: paddleCanvas,
+    antialias: true,
+    alpha: true,
+  });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100,
+  );
+  camera.position.set(0, 0, 5);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+  dirLight.position.set(2, 4, 3);
+  scene.add(dirLight);
+
+  let paddle = null;
+  const orientation = { alpha: 0, beta: 0, gamma: 0 };
+
+  const loader = new GLTFLoader();
+  loader.load("/assets/paddle.glb", (gltf) => {
+    const pivot = new THREE.Group();
+    gltf.scene.rotation.z = Math.PI;
+    gltf.scene.rotation.x = Math.PI;
+    const box = new THREE.Box3().setFromObject(gltf.scene);
+    const centre = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3()).length();
+    const scale = 2.5 / size;
+    gltf.scene.scale.setScalar(scale);
+    gltf.scene.position.set(-centre.x * scale, -centre.y * scale, -centre.z * scale);
+    pivot.add(gltf.scene);
+    scene.add(pivot);
+    paddle = pivot;
+  }, undefined, (err) => {
+    console.error("[Pingpong] Failed to load paddle.glb:", err)
+  });
+
+  let rendererW = 0, rendererH = 0;
+  function resizePaddle() {
+    const W = window.innerWidth, H = window.innerHeight;
+    if (rendererW !== W || rendererH !== H) {
+      rendererW = W;
+      rendererH = H;
+      renderer.setSize(W, H);
+      camera.aspect = W / H;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  function renderPaddle() {
+    resizePaddle();
+    if (paddle) {
+      paddle.rotation.order = "YXZ";
+      paddle.rotation.y = THREE.MathUtils.degToRad(orientation.alpha);
+      paddle.rotation.x = THREE.MathUtils.degToRad(orientation.beta);
+      paddle.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma);
+    }
+    renderer.render(scene, camera);
+  }
+
+  // ── Loop ──────────────────────────────────────────────────────────────────
+
+  let rafId = null;
+  let fadingOut = false;
+
+  paddleCanvas.style.transition = "opacity 1.5s ease";
+
+  function startLoop() {
+    fadingOut = false;
+    if (rafId) return;
+    graphArea.classList.remove("hidden");
+    paddleCanvas.style.display = "block";
+    paddleCanvas.style.opacity = "0";
+    paddleCanvas.getBoundingClientRect();
+    paddleCanvas.style.opacity = "1";
+    function loop() {
+      renderGraph();
+      renderPaddle();
+      rafId = requestAnimationFrame(loop);
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function stopLoop() {
+    fadingOut = true;
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    graphArea.classList.add("hidden");
+    paddleCanvas.style.opacity = "0";
+    paddleCanvas.addEventListener(
+      "transitionend",
+      () => { if (fadingOut) paddleCanvas.style.display = "none"; },
+      { once: true },
+    );
+    for (const row of ROWS) for (const key of row.keys) data[key].fill(0);
+    orientation.alpha = orientation.beta = orientation.gamma = 0;
+    if (paddle) paddle.rotation.set(0, 0, 0);
+  }
+
+  // ── Channel ───────────────────────────────────────────────────────────────
+
+  channel.on("sensor_graph_connected", () => startLoop());
+  channel.on("sensor_graph_disconnected", () => stopLoop());
+
+  channel.on("orient", ({ alpha, beta, gamma }) => {
+    orientation.alpha = alpha || 0;
+    orientation.beta  = beta  || 0;
+    orientation.gamma = gamma || 0;
+    push("beta", beta);
+    push("gamma", gamma);
+    push("alpha", alpha);
+  });
+
+  channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
+    push("ax", ax);
+    push("ay", ay);
+    push("az", az);
+    push("rx", rx);
+    push("ry", ry);
+    push("rz", rz);
+  });
+}

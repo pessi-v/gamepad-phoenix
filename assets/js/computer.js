@@ -1,9 +1,10 @@
 import { Socket } from "phoenix"
-import { init as initSensorGraph } from "./sensor-graph-demo"
+import { init as initSensorGraph } from "./fish-demo"
 import { init as initGamepadRtc } from "./gamepad-rtc-demo"
 import { createRtcChannel } from "./gamepad-rtc"
 
 import { init as initNes } from "./nes-demo"
+import { init as initPingpong } from "./pingpong-demo"
 
 const el = document.getElementById("cs-data")
 if (!el) {
@@ -16,6 +17,7 @@ if (!el) {
   const gamepadRtcUrl        = el.dataset.gamepadRtcUrl
   const gamepadRtcSessionId  = el.dataset.gamepadRtcSessionId
   const nesUrl               = el.dataset.nesUrl
+  const pingpongUrl          = el.dataset.pingpongUrl
 
   // QR codes
   const qrEl = document.getElementById("qr-code")
@@ -38,6 +40,10 @@ if (!el) {
   const sensorGraphQrEl = document.getElementById("sensor-graph-qr")
   if (sensorGraphQrEl && typeof QRCode !== "undefined") {
     new QRCode(sensorGraphQrEl, { text: sensorGraphUrl, width: 200, height: 200 })
+  }
+  const pingpongQrEl = document.getElementById("pingpong-qr")
+  if (pingpongQrEl && typeof QRCode !== "undefined") {
+    new QRCode(pingpongQrEl, { text: pingpongUrl, width: 200, height: 200 })
   }
 
   const socket = new Socket("/socket", {})
@@ -321,4 +327,14 @@ if (!el) {
     .join()
     .receive("ok",    () => console.log("[CS] joined sensor_graph:" + sessionId))
     .receive("error", (err) => console.error("[CS] sensor_graph join error", err))
+
+  // --- Pingpong ---
+  const pingpongSessionId  = el.dataset.pingpongSessionId
+  const pingpongChannel    = socket.channel(`sensor_graph:${pingpongSessionId}`, {})
+  initPingpong(pingpongChannel)
+
+  pingpongChannel
+    .join()
+    .receive("ok",    () => console.log("[CS] joined sensor_graph:" + pingpongSessionId))
+    .receive("error", (err) => console.error("[CS] pingpong join error", err))
 }

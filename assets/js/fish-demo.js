@@ -156,7 +156,7 @@ export function init(channel) {
   const orientation = { alpha: 0, beta: 0, gamma: 0 };
 
   // Procedural bone animation state
-  const clock = new THREE.Clock();
+  const timer = new THREE.Timer();
   let wigglePhase = 0;
   const bones = {};       // name → Object3D
   const restQ = {};       // name → Quaternion (rest pose)
@@ -280,7 +280,8 @@ export function init(channel) {
       fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma * 0.5);
 
       // ── Procedural bone animation ────────────────────────────────────────
-      const dt = Math.min(clock.getDelta(), 0.1); // clamp to avoid jumps
+      timer.update();
+      const dt = Math.min(timer.getDelta(), 0.1); // clamp to avoid jumps
 
       // Phase advances faster when the user wiggles more
       const IDLE_FREQ = 1.5;   // rad/s — gentle idle undulation

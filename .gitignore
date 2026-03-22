@@ -40,3 +40,5 @@ npm-debug.log
 # TLS certificates and private keys — never commit these
 /priv/cert/
 config/dev.exs
+
+*.DS_Store

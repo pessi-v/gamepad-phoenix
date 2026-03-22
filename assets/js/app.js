@@ -12,6 +12,7 @@ import "./computer"
 import "./pad"
 import "./sensor"
 import "./sensor-graph"
+import "./pingpong"
 
 // Enable live_reload dev tools (server log streaming, click-to-editor)
 if (process.env.NODE_ENV === "development") {
