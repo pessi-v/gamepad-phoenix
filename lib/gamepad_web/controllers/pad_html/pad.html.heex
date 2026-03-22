@@ -1,6 +1,6 @@
 <div id="ps-data" data-session-id={@session_id}></div>
 
-<div class="pad-root min-h-screen max-h-screen flex flex-col items-center justify-center select-none">
+<div class="pad-root min-h-screen max-h-screen flex flex-col gap-5 items-center justify-center select-none">
   <div class="w-full flex items-center justify-between gap-20 px-17">
     <!-- Thumbstick (left side) -->
     <div id="thumbstick-base" class="relative w-44 h-44 rounded-full bg-base-300">
@@ -9,10 +9,18 @@
            style="top: 50%; left: 50%; transform: translate(-50%, -50%)"></div>
     </div>
 
-    <!-- A / B buttons (right side) -->
-    <div class="flex gap-6 h-[184px]">
-      <button class="self-end action-btn bg-yellow-500 text-white mb-10" data-button="b">B</button>
-      <button class="self-start action-btn bg-purple-500 text-white mt-10" data-button="a">A</button>
+
+    <!-- A/B button field (right side) — diagonal \ split: B lower-left, A upper-right -->
+    <div id="button-field" class="relative rounded-xl bg-base-300 touch-manipulation select-none" style="width:200px;height:184px;">
+      <div id="field-b-highlight" class="pointer-events-none absolute inset-0" style="clip-path:polygon(0% 0%, 0% 100%, 100% 100%);transition:background 75ms"></div>
+      <div id="field-a-highlight" class="pointer-events-none absolute inset-0" style="clip-path:polygon(0% 0%, 100% 0%, 100% 100%);transition:background 75ms"></div>
+      <span class="absolute bottom-3 left-4 text-2xl font-bold text-yellow-500/70 pointer-events-none">B</span>
+      <span class="absolute top-3 right-4 text-2xl font-bold text-purple-500/70 pointer-events-none">A</span>
     </div>
+  </div>
+    <!-- Select / Start (center) -->
+  <div class="flex gap-4">
+    <button class="px-4 py-2 rounded-full bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase touch-manipulation transition-all duration-75" data-button="select">Select</button>
+    <button class="px-4 py-2 rounded-full bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase touch-manipulation transition-all duration-75" data-button="start">Start</button>
   </div>
 </div>

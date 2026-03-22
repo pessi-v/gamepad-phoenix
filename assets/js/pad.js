@@ -50,6 +50,15 @@ if (!el) {
   let pc = null;
   let dc = null;
 
+  const CHUNK_SIZE = 64 * 1024;
+  function chunkSend(message) {
+    if (message.length <= CHUNK_SIZE) { dc.send(message); return; }
+    const id = Date.now().toString(36);
+    const total = Math.ceil(message.length / CHUNK_SIZE);
+    for (let i = 0; i < total; i++)
+      dc.send(JSON.stringify({ _c: 1, id, i, n: total, d: message.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE) }));
+  }
+
   function send(event, payload) {
     if (dc && dc.readyState === "open") {
       dc.send(JSON.stringify({ event, payload }));
@@ -64,8 +73,16 @@ if (!el) {
 
     pc.ondatachannel = ({ channel: dataChannel }) => {
       dc = dataChannel;
-      dc.onopen  = () => console.log("[PS] data channel open");
+      dc.onopen = () => {
+        console.log("[PS] data channel open");
+        const saved = localStorage.getItem("nes-save-state");
+        if (saved) chunkSend(JSON.stringify({ event: "nes_save_state", payload: { state: saved } }));
+      };
       dc.onclose = () => { dc = null; };
+      dc.onmessage = ({ data }) => {
+        const { event, payload } = JSON.parse(data);
+        if (event === "nes_save_state") localStorage.setItem("nes-save-state", payload.state);
+      };
     };
 
     pc.onicecandidate = ({ candidate }) => {
@@ -171,22 +188,60 @@ if (!el) {
     stickRelease();
   });
 
-  // --- A / B buttons ---
+  // --- Select / Start buttons ---
   document.querySelectorAll("[data-button]").forEach((btn) => {
     const button = btn.dataset.button;
-
-    btn.addEventListener("touchstart", (e) => {
+    btn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      btn.classList.add("scale-90", "brightness-75");
       send("button_down", { button });
     }, { passive: false });
-
-    btn.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      send("button_up", { button });
-    }, { passive: false });
-
-    btn.addEventListener("mousedown", () => send("button_down", { button }));
-    btn.addEventListener("mouseup", () => send("button_up", { button }));
-    btn.addEventListener("mouseleave", () => send("button_up", { button }));
+    btn.addEventListener("pointerup",     () => { btn.classList.remove("scale-90", "brightness-75"); send("button_up", { button }); });
+    btn.addEventListener("pointercancel", () => { btn.classList.remove("scale-90", "brightness-75"); send("button_up", { button }); });
   });
+
+  // --- A/B button field ---
+  // Left zone = B, right zone = A, middle overlap = both.
+  // Each active pointer contributes independently so sliding across zones
+  // naturally presses both buttons at once.
+  const buttonField   = document.getElementById("button-field");
+  const fieldBLight   = document.getElementById("field-b-highlight");
+  const fieldALight   = document.getElementById("field-a-highlight");
+  const activePointers = new Map(); // pointerId → { b, a }
+  let fieldB = false, fieldA = false;
+
+  function pointerZone(e) {
+    const rect = buttonField.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    // "\" diagonal: d > 0 = upper-right (A), d < 0 = lower-left (B), ±0.1 overlap
+    const d = x - y;
+    return { b: d < 0.1, a: d > -0.1 };
+  }
+
+  function syncField() {
+    let b = false, a = false;
+    for (const z of activePointers.values()) { if (z.b) b = true; if (z.a) a = true; }
+    if (b !== fieldB) { send(b ? "button_down" : "button_up", { button: "b" }); fieldB = b; }
+    if (a !== fieldA) { send(a ? "button_down" : "button_up", { button: "a" }); fieldA = a; }
+    fieldBLight.style.background = b ? "rgba(234,179,8,0.35)"  : "";
+    fieldALight.style.background = a ? "rgba(168,85,247,0.35)" : "";
+  }
+
+  buttonField.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    buttonField.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId, pointerZone(e));
+    syncField();
+  }, { passive: false });
+
+  buttonField.addEventListener("pointermove", (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, pointerZone(e));
+    syncField();
+  });
+
+  buttonField.addEventListener("pointerup",     (e) => { activePointers.delete(e.pointerId); syncField(); });
+  buttonField.addEventListener("pointercancel", (e) => { activePointers.delete(e.pointerId); syncField(); });
 }

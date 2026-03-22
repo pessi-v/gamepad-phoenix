@@ -10,11 +10,11 @@
     <p class="text-sm leading-relaxed text-base-content/80">
       This is a proof-of-concept for desktop–smartphone interactions. Each QR code can be scanned with a smartphone, and a connection between the open page and the smartphone will be established. 
     </p>
-    <p class="text-sm leading-relaxed text-base-content/80 mt-4">
+    <%# <p class="text-sm leading-relaxed text-base-content/80 mt-4">
       <em>Gamepad</em> turns the smartphone into a simple game console pad, with a thumbstick and A/B buttons. Gamepad data flows through the server to the desktop browser using WebSockets/Phoenix Channels.
-    </p>
+    </p> %>
     <p class="text-sm leading-relaxed text-base-content/80 mt-4">
-      <em>Gamepad RTC</em> is the same, but smartphone is transmitting directly to desktop browser using WebRTC.
+      <em>Gamepad RTC</em> turns the smartphone into a simple game console pad, with a thumbstick and A/B buttons. Data is transmitted to desktop browser using WebRTC p2p.
     </p>
     <p class="text-sm leading-relaxed text-base-content/80 mt-4">
       <em>Motion</em> uses the phone's orientation to move a ball along a track. Uses WebSockets.
@@ -38,7 +38,9 @@
   data-sensor-url={@sensor_url}
   data-sensor-graph-url={@sensor_graph_url}
   data-gamepad-rtc-url={@gamepad_rtc_url}
-  data-gamepad-rtc-session-id={@gamepad_rtc_session_id}></div>
+  data-gamepad-rtc-session-id={@gamepad_rtc_session_id}
+  data-nes-url={@nes_url}
+  data-nes-session-id={@nes_session_id}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
 
@@ -49,6 +51,7 @@
     <div id="gamepad-rtc-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
       <div id="gamepad-rtc-object" class="absolute w-12 h-12 rounded-full bg-secondary"></div>
     </div>
+
     <div id="sensor-area" class="hidden relative flex-1 rounded-box overflow-hidden bg-base-200" style="height: 320px;">
       <canvas id="track-canvas" class="absolute inset-0 w-full h-full" style="pointer-events:none;z-index:0"></canvas>
       <div id="sensor-ball" class="absolute w-12 h-12 rounded-full bg-secondary" style="z-index:2"></div>
@@ -59,22 +62,43 @@
     </div>
   </div>
 
+  <div id="nes-wrapper" class="hidden flex-row gap-3 items-start">
+    <div id="nes-area" class="relative rounded-box overflow-hidden bg-black" style="width: 512px; height: 480px;">
+      <canvas id="nes-canvas" style="image-rendering: pixelated; width: 512px; height: 480px;"></canvas>
+      <div id="nes-rom-prompt" class="absolute inset-0 flex items-center justify-center">
+        <p class="text-white/50 text-sm">Loading ROM…</p>
+      </div>
+      <div id="nes-sound-prompt" class="hidden absolute bottom-2 right-2 text-white text-xs select-none rounded px-2 py-1 bg-black/55">
+        🔇 click anywhere for sound
+      </div>
+    </div>
+    <div class="flex flex-col gap-2">
+      <button id="nes-save-btn" class="px-3 py-2 rounded-lg bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase transition-all duration-75">Save <span class="opacity-40 font-normal normal-case tracking-normal">[S]</span></button>
+      <button id="nes-load-btn" class="px-3 py-2 rounded-lg bg-base-300 text-base-content text-xs font-semibold tracking-widest uppercase transition-all duration-75 disabled:opacity-30" disabled>Load <span class="opacity-40 font-normal normal-case tracking-normal">[R]</span></button>
+    </div>
+  </div>
+
   <div id="graph-area" class="hidden w-full max-w-5xl rounded-box overflow-hidden bg-base-200" style="height: 280px;">
     <canvas id="graph-canvas" style="width:100%;height:100%;display:block;"></canvas>
   </div>
 
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
-    <div class="flex flex-col items-center gap-2">
+    <div class="hidden flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad</p>
       <div id="qr-code" class="p-4 bg-white rounded-box shadow"></div>
     </div>
     <div class="flex flex-col items-center gap-2">
-      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad RTC</p>
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad</p> 
       <div id="gamepad-rtc-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
+
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Motion</p>
       <div id="sensor-qr" class="p-4 bg-white rounded-box shadow"></div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Mario Adventure</p>
+      <div id="nes-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Fish</p>
