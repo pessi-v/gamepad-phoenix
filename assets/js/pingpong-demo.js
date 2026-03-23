@@ -2,120 +2,8 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export function init(channel) {
-  const graphArea   = document.getElementById("graph-area");
-  const graphCanvas = document.getElementById("graph-canvas");
+  const graphArea    = document.getElementById("graph-area");
   const paddleCanvas = document.getElementById("paddle-canvas");
-
-  // ── Graph ─────────────────────────────────────────────────────────────────
-
-  const MAX_POINTS = 200;
-  const ROWS = [
-    {
-      label: "Orientation (°)",
-      keys: ["beta", "gamma", "alpha"],
-      seriesLabels: ["β", "γ", "α"],
-      min: -180,
-      max: 360,
-      colors: ["#f87171", "#4ade80", "#60a5fa"],
-    },
-    {
-      label: "Acceleration (m/s²)",
-      keys: ["ax", "ay", "az"],
-      seriesLabels: ["x", "y", "z"],
-      min: -20,
-      max: 20,
-      colors: ["#f87171", "#4ade80", "#60a5fa"],
-    },
-    {
-      label: "Rotation (°/s)",
-      keys: ["rx", "ry", "rz"],
-      seriesLabels: ["x", "y", "z"],
-      min: -360,
-      max: 360,
-      colors: ["#f87171", "#4ade80", "#60a5fa"],
-    },
-  ];
-
-  const data = {};
-  for (const row of ROWS)
-    for (const key of row.keys) data[key] = new Array(MAX_POINTS).fill(0);
-
-  function push(key, val) {
-    data[key].push(val != null ? val : 0);
-    if (data[key].length > MAX_POINTS) data[key].shift();
-  }
-
-  function renderGraph() {
-    const W = graphArea.clientWidth;
-    const H = graphArea.clientHeight;
-    if (graphCanvas.width !== W) graphCanvas.width = W;
-    if (graphCanvas.height !== H) graphCanvas.height = H;
-
-    const ctx = graphCanvas.getContext("2d");
-    ctx.clearRect(0, 0, W, H);
-
-    const LEFT = 46;
-    const RIGHT = 12;
-    const LABEL_H = 16;
-    const ROW_GAP = 8;
-    const plotW = W - LEFT - RIGHT;
-    const rowH = Math.floor((H - ROW_GAP * (ROWS.length - 1)) / ROWS.length);
-    const plotH = rowH - LABEL_H;
-
-    ROWS.forEach((row, ri) => {
-      const rowTop = ri * (rowH + ROW_GAP);
-      const plotTop = rowTop + LABEL_H;
-      const span = row.max - row.min;
-      const zeroY = plotTop + plotH * (1 - (0 - row.min) / span);
-
-      ctx.fillStyle = "rgba(255,255,255,0.04)";
-      ctx.fillRect(LEFT, plotTop, plotW, plotH);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(LEFT, zeroY);
-      ctx.lineTo(LEFT + plotW, zeroY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.font = "9px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText(row.max, LEFT - 2, plotTop + 8);
-      ctx.fillText(row.min, LEFT - 2, plotTop + plotH);
-      ctx.textAlign = "left";
-
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.font = "11px monospace";
-      ctx.fillText(row.label, LEFT, rowTop + 11);
-
-      let xCursor = LEFT + ctx.measureText(row.label + "   ").width;
-      row.keys.forEach((key, ki) => {
-        const cur = data[key][data[key].length - 1];
-        const valStr = `${row.seriesLabels[ki]}:${cur >= 0 ? "+" : ""}${cur.toFixed(1)}  `;
-        ctx.fillStyle = row.colors[ki];
-        ctx.fillText(valStr, xCursor, rowTop + 11);
-        xCursor += ctx.measureText(valStr).width;
-      });
-
-      row.keys.forEach((key, ki) => {
-        const vals = data[key];
-        ctx.strokeStyle = row.colors[ki];
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        vals.forEach((v, i) => {
-          const x = LEFT + (i / (MAX_POINTS - 1)) * plotW;
-          const y =
-            plotTop +
-            plotH * (1 - Math.max(0, Math.min(1, (v - row.min) / span)));
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      });
-    });
-  }
 
   // ── Paddle (Three.js) ─────────────────────────────────────────────────────
 
@@ -143,6 +31,7 @@ export function init(channel) {
 
   let paddle = null;
   const orientation = { alpha: 0, beta: 0, gamma: 0 };
+  const trackPos    = { x: 0, y: 0 };
 
   const loader = new GLTFLoader();
   loader.load("/assets/paddle.glb", (gltf) => {
@@ -181,8 +70,162 @@ export function init(channel) {
       paddle.rotation.y = THREE.MathUtils.degToRad(orientation.alpha);
       paddle.rotation.x = THREE.MathUtils.degToRad(orientation.beta);
       paddle.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma);
+      paddle.position.x = trackPos.x;
+      paddle.position.y = trackPos.y;
     }
     renderer.render(scene, camera);
+  }
+
+  // ── Webcam Position Tracking (frame differencing, no calibration needed) ──
+  //
+  // Compares each frame against the previous frame. Pixels that changed more
+  // than DIFF_THRESH are "motion pixels". The centroid of all motion pixels
+  // is where the phone is. When no motion is detected the last position holds.
+
+  const webcamVideo   = document.getElementById("webcam-video");
+  const dbgCanvas     = document.getElementById("webcam-debug-canvas");
+  const dbgCtx        = dbgCanvas.getContext("2d");
+  let webcamActive    = false;
+  let webcamStream    = null;
+
+  const CAM_W = 160, CAM_H = 120;
+  const offscreen = document.createElement("canvas");
+  offscreen.width  = CAM_W;
+  offscreen.height = CAM_H;
+  const offCtx = offscreen.getContext("2d", { willReadFrequently: true });
+
+  const fgCanvas  = document.createElement("canvas");
+  fgCanvas.width  = CAM_W;
+  fgCanvas.height = CAM_H;
+  const fgCtx     = fgCanvas.getContext("2d");
+  const fgImgData = fgCtx.createImageData(CAM_W, CAM_H);
+
+  let prevData      = null;   // previous frame pixel data
+  const DIFF_THRESH = 20;     // sum-of-channels threshold to call a pixel "moved"
+  const MIN_BLOB    = 100;    // minimum motion pixels required to trust centroid
+  const SMOOTH      = 0.15;
+  const trackSmooth = { x: 0.5, y: 0.5 };
+
+  function processWebcamFrame() {
+    if (!webcamActive) return;
+
+    offCtx.drawImage(webcamVideo, 0, 0, CAM_W, CAM_H);
+    const { data } = offCtx.getImageData(0, 0, CAM_W, CAM_H);
+
+    if (!prevData) {
+      prevData = new Uint8ClampedArray(data);
+      requestAnimationFrame(processWebcamFrame);
+      return;
+    }
+
+    let sumX = 0, sumY = 0, count = 0;
+
+    for (let i = 0; i < CAM_W * CAM_H; i++) {
+      const p = i * 4;
+      const diff = Math.abs(data[p] - prevData[p])
+                 + Math.abs(data[p+1] - prevData[p+1])
+                 + Math.abs(data[p+2] - prevData[p+2]);
+      const isFg = diff > DIFF_THRESH;
+
+      // Build overlay: brighter green for larger differences
+      fgImgData.data[p]     = 50;
+      fgImgData.data[p + 1] = 220;
+      fgImgData.data[p + 2] = 50;
+      fgImgData.data[p + 3] = isFg ? Math.min(255, diff * 2) : 0;
+
+      if (isFg) {
+        sumX += i % CAM_W;
+        sumY += Math.floor(i / CAM_W);
+        count++;
+      }
+    }
+
+    // Always copy current frame to prev BEFORE early-returning
+    prevData.set(data);
+
+    const detected = count > MIN_BLOB;
+    if (detected) {
+      const nx = 1 - sumX / count / CAM_W; // mirror X to match display
+      const ny = sumY / count / CAM_H;
+      trackSmooth.x += (nx - trackSmooth.x) * SMOOTH;
+      trackSmooth.y += (ny - trackSmooth.y) * SMOOTH;
+      const aspect = rendererW > 0 ? rendererW / rendererH : camera.aspect;
+      const halfH  = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+      const halfW  = halfH * aspect;
+      trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW;
+      trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH;
+    }
+
+    // ── Debug view ──────────────────────────────────────────────────────────
+    const DW = dbgCanvas.clientWidth, DH = dbgCanvas.clientHeight;
+    if (dbgCanvas.width !== DW || dbgCanvas.height !== DH) {
+      dbgCanvas.width = DW; dbgCanvas.height = DH;
+    }
+
+    // Webcam feed, mirrored
+    dbgCtx.save();
+    dbgCtx.translate(DW, 0);
+    dbgCtx.scale(-1, 1);
+    dbgCtx.drawImage(offscreen, 0, 0, DW, DH);
+    dbgCtx.restore();
+
+    // Motion overlay, mirrored to match feed
+    fgCtx.putImageData(fgImgData, 0, 0);
+    dbgCtx.save();
+    dbgCtx.translate(DW, 0);
+    dbgCtx.scale(-1, 1);
+    dbgCtx.drawImage(fgCanvas, 0, 0, DW, DH);
+    dbgCtx.restore();
+
+    // Crosshair — always visible so you can see where the tracker thinks the
+    // phone is even when not actively detecting. Green = detecting, gray = holding.
+    const cx = trackSmooth.x * DW;
+    const cy = trackSmooth.y * DH;
+    dbgCtx.strokeStyle = detected ? "#00ff00" : "rgba(255,255,255,0.4)";
+    dbgCtx.lineWidth = 2;
+    dbgCtx.beginPath();
+    dbgCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+    dbgCtx.stroke();
+    dbgCtx.beginPath();
+    dbgCtx.moveTo(cx - 22, cy); dbgCtx.lineTo(cx + 22, cy);
+    dbgCtx.moveTo(cx, cy - 22); dbgCtx.lineTo(cx, cy + 22);
+    dbgCtx.stroke();
+
+    // Pixel count so you can see if detection is firing at all
+    dbgCtx.fillStyle = detected ? "#00ff00" : "rgba(255,255,255,0.5)";
+    dbgCtx.font = "bold 12px monospace";
+    dbgCtx.fillText(`motion px: ${count}  min: ${MIN_BLOB}`, 8, DH - 8);
+
+    requestAnimationFrame(processWebcamFrame);
+  }
+
+  async function startWebcam() {
+    if (webcamActive) return;
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: CAM_W }, height: { ideal: CAM_H } },
+        audio: false,
+      });
+      webcamVideo.srcObject = webcamStream;
+      await webcamVideo.play();
+      prevData = null;
+      webcamActive = true;
+      requestAnimationFrame(processWebcamFrame);
+    } catch (e) {
+      console.warn("[Pingpong] Webcam tracking unavailable:", e);
+    }
+  }
+
+  function stopWebcam() {
+    webcamActive = false;
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(t => t.stop());
+      webcamStream = null;
+      webcamVideo.srcObject = null;
+    }
+    prevData = null;
+    trackSmooth.x = trackSmooth.y = 0.5;
+    trackPos.x = trackPos.y = 0;
   }
 
   // ── Loop ──────────────────────────────────────────────────────────────────
@@ -200,8 +243,8 @@ export function init(channel) {
     paddleCanvas.style.opacity = "0";
     paddleCanvas.getBoundingClientRect();
     paddleCanvas.style.opacity = "1";
+    startWebcam();
     function loop() {
-      renderGraph();
       renderPaddle();
       rafId = requestAnimationFrame(loop);
     }
@@ -214,6 +257,7 @@ export function init(channel) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    stopWebcam();
     graphArea.classList.add("hidden");
     paddleCanvas.style.opacity = "0";
     paddleCanvas.addEventListener(
@@ -221,9 +265,8 @@ export function init(channel) {
       () => { if (fadingOut) paddleCanvas.style.display = "none"; },
       { once: true },
     );
-    for (const row of ROWS) for (const key of row.keys) data[key].fill(0);
     orientation.alpha = orientation.beta = orientation.gamma = 0;
-    if (paddle) paddle.rotation.set(0, 0, 0);
+    if (paddle) { paddle.rotation.set(0, 0, 0); paddle.position.set(0, 0, 0); }
   }
 
   // ── Channel ───────────────────────────────────────────────────────────────
@@ -235,17 +278,7 @@ export function init(channel) {
     orientation.alpha = alpha || 0;
     orientation.beta  = beta  || 0;
     orientation.gamma = gamma || 0;
-    push("beta", beta);
-    push("gamma", gamma);
-    push("alpha", alpha);
   });
 
-  channel.on("motion", ({ ax, ay, az, rx, ry, rz }) => {
-    push("ax", ax);
-    push("ay", ay);
-    push("az", az);
-    push("rx", rx);
-    push("ry", ry);
-    push("rz", rz);
-  });
+  channel.on("motion", () => {});
 }

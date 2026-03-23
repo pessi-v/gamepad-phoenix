@@ -46,7 +46,7 @@ if (!el) {
     new QRCode(pingpongQrEl, { text: pingpongUrl, width: 200, height: 200 })
   }
 
-  const socket = new Socket("/socket", {})
+  const socket = new Socket("/socket", { logger: false })
   socket.connect()
 
   // --- Gamepad: thumbstick-driven object ---
