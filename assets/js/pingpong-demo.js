@@ -55,11 +55,14 @@ export function init(channel) {
   let ball = null;
   const HIT_RADIUS   = 1.1;   // world-unit radius for paddle–ball collision
   const PADDLE_Z     = 0.0;   // z-plane of the paddle face
-  const BALL_START_Z = -10;   // spawn distance
+  const BACK_WALL_Z  = -12;   // far wall z position
+  const WALL_X       = 3.5;   // half-width of side walls
+  const WALL_Y       = 2.5;   // half-height of top/bottom walls
+  const BALL_START_Z = -2;    // spawn just behind the paddle
   const INIT_VZ      = 0.07;  // initial approach speed (world units / frame @ 60 fps)
 
   // Ball physics state
-  const bs = { x: 0, y: 0, z: BALL_START_Z, vx: 0, vy: 0, vz: INIT_VZ, speed: INIT_VZ };
+  const bs = { x: 0, y: 0, z: BALL_START_Z, vx: 0, vy: 0, vz: -INIT_VZ, speed: INIT_VZ };
 
   function resetBall() {
     bs.x  = (Math.random() - 0.5) * 1.5;
@@ -67,8 +70,17 @@ export function init(channel) {
     bs.z  = BALL_START_Z;
     bs.vx = (Math.random() - 0.5) * 0.03;
     bs.vy = (Math.random() - 0.5) * 0.02;
-    bs.vz = bs.speed;
+    bs.vz = -bs.speed;  // start moving away from camera
   }
+
+  // Build visible walls
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x4466aa, transparent: true, opacity: 0.18, side: THREE.BackSide,
+  });
+  const roomGeo = new THREE.BoxGeometry(WALL_X * 2, WALL_Y * 2, Math.abs(BACK_WALL_Z) + PADDLE_Z);
+  const room    = new THREE.Mesh(roomGeo, wallMat);
+  room.position.z = (BACK_WALL_Z + PADDLE_Z) / 2;
+  scene.add(room);
 
   function updateBall() {
     if (!ball) return;
@@ -76,6 +88,15 @@ export function init(channel) {
     bs.x += bs.vx;
     bs.y += bs.vy;
     bs.z += bs.vz;
+
+    // Back wall
+    if (bs.z <= BACK_WALL_Z) { bs.z = BACK_WALL_Z; bs.vz =  Math.abs(bs.vz); }
+    // Side walls
+    if (bs.x <= -WALL_X)     { bs.x = -WALL_X;     bs.vx =  Math.abs(bs.vx); }
+    if (bs.x >=  WALL_X)     { bs.x =  WALL_X;     bs.vx = -Math.abs(bs.vx); }
+    // Top / bottom walls
+    if (bs.y <= -WALL_Y)     { bs.y = -WALL_Y;     bs.vy =  Math.abs(bs.vy); }
+    if (bs.y >=  WALL_Y)     { bs.y =  WALL_Y;     bs.vy = -Math.abs(bs.vy); }
 
     // Collision: ball crosses the paddle plane while still approaching
     if (bs.vz > 0 && bs.z >= PADDLE_Z - 0.2 && bs.z <= PADDLE_Z + 0.5) {
