@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export function init(channel) {
-  const graphArea    = document.getElementById("graph-area");
   const paddleCanvas = document.getElementById("paddle-canvas");
 
   // ── Paddle (Three.js) ─────────────────────────────────────────────────────
@@ -51,6 +50,73 @@ export function init(channel) {
     console.error("[Pingpong] Failed to load paddle.glb:", err)
   });
 
+  // ── Ball ──────────────────────────────────────────────────────────────────
+
+  let ball = null;
+  const HIT_RADIUS   = 1.1;   // world-unit radius for paddle–ball collision
+  const PADDLE_Z     = 0.0;   // z-plane of the paddle face
+  const BALL_START_Z = -10;   // spawn distance
+  const INIT_VZ      = 0.07;  // initial approach speed (world units / frame @ 60 fps)
+
+  // Ball physics state
+  const bs = { x: 0, y: 0, z: BALL_START_Z, vx: 0, vy: 0, vz: INIT_VZ, speed: INIT_VZ };
+
+  function resetBall() {
+    bs.x  = (Math.random() - 0.5) * 1.5;
+    bs.y  = (Math.random() - 0.5) * 0.8;
+    bs.z  = BALL_START_Z;
+    bs.vx = (Math.random() - 0.5) * 0.03;
+    bs.vy = (Math.random() - 0.5) * 0.02;
+    bs.vz = bs.speed;
+  }
+
+  function updateBall() {
+    if (!ball) return;
+
+    bs.x += bs.vx;
+    bs.y += bs.vy;
+    bs.z += bs.vz;
+
+    // Collision: ball crosses the paddle plane while still approaching
+    if (bs.vz > 0 && bs.z >= PADDLE_Z - 0.2 && bs.z <= PADDLE_Z + 0.5) {
+      const dx = bs.x - trackPos.x;
+      const dy = bs.y - trackPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) {
+        bs.speed  = Math.min(bs.speed * 1.08, 0.25); // rally: speed up each hit, cap at 0.25
+        bs.vz     = -bs.speed;
+        bs.vx     = dx * 0.04;                        // deflect off-centre hits
+        bs.vy     = dy * 0.04;
+      }
+    }
+
+    // Miss: ball flew past the camera — brief pause then respawn
+    if (bs.z > camera.position.z + 2) {
+      ball.visible = false;
+      bs.speed = INIT_VZ;
+      setTimeout(() => { if (ball) { ball.visible = true; resetBall(); } }, 1200);
+    }
+
+    ball.position.set(bs.x, bs.y, bs.z);
+    ball.rotation.x += 0.03;
+    ball.rotation.y += 0.02;
+  }
+
+  loader.load("/assets/ball.glb", (gltf) => {
+    const pivot = new THREE.Group();
+    const box   = new THREE.Box3().setFromObject(gltf.scene);
+    const centre = box.getCenter(new THREE.Vector3());
+    const size   = box.getSize(new THREE.Vector3()).length();
+    const scale  = 0.7 / size;
+    gltf.scene.scale.setScalar(scale);
+    gltf.scene.position.set(-centre.x * scale, -centre.y * scale, -centre.z * scale);
+    pivot.add(gltf.scene);
+    scene.add(pivot);
+    ball = pivot;
+    resetBall();
+  }, undefined, (err) => {
+    console.error("[Pingpong] Failed to load ball.glb:", err);
+  });
+
   let rendererW = 0, rendererH = 0;
   function resizePaddle() {
     const W = window.innerWidth, H = window.innerHeight;
@@ -73,6 +139,7 @@ export function init(channel) {
       paddle.position.x = trackPos.x;
       paddle.position.y = trackPos.y;
     }
+    updateBall();
     renderer.render(scene, camera);
   }
 
@@ -83,8 +150,6 @@ export function init(channel) {
   // is where the phone is. When no motion is detected the last position holds.
 
   const webcamVideo   = document.getElementById("webcam-video");
-  const dbgCanvas     = document.getElementById("webcam-debug-canvas");
-  const dbgCtx        = dbgCanvas.getContext("2d");
   let webcamActive    = false;
   let webcamStream    = null;
 
@@ -196,43 +261,39 @@ export function init(channel) {
     trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW;
     trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH;
 
-    // ── Debug view ──────────────────────────────────────────────────────────
-    const DW = dbgCanvas.clientWidth, DH = dbgCanvas.clientHeight;
-    if (dbgCanvas.width !== DW || dbgCanvas.height !== DH) {
-      dbgCanvas.width = DW; dbgCanvas.height = DH;
-    }
-
-    // Webcam feed, mirrored
-    dbgCtx.save();
-    dbgCtx.translate(DW, 0);
-    dbgCtx.scale(-1, 1);
-    dbgCtx.drawImage(offscreen, 0, 0, DW, DH);
-    dbgCtx.restore();
-
-    // Motion overlay, mirrored to match feed
-    fgCtx.putImageData(fgImgData, 0, 0);
-    dbgCtx.save();
-    dbgCtx.translate(DW, 0);
-    dbgCtx.scale(-1, 1);
-    dbgCtx.drawImage(fgCanvas, 0, 0, DW, DH);
-    dbgCtx.restore();
-
-    // Crosshair — green = detecting largest blob, gray = holding position
-    const cx = trackSmooth.x * DW;
-    const cy = trackSmooth.y * DH;
-    dbgCtx.strokeStyle = detected ? "#00ff00" : "rgba(255,255,255,0.4)";
-    dbgCtx.lineWidth = 2;
-    dbgCtx.beginPath();
-    dbgCtx.arc(cx, cy, 14, 0, Math.PI * 2);
-    dbgCtx.stroke();
-    dbgCtx.beginPath();
-    dbgCtx.moveTo(cx - 22, cy); dbgCtx.lineTo(cx + 22, cy);
-    dbgCtx.moveTo(cx, cy - 22); dbgCtx.lineTo(cx, cy + 22);
-    dbgCtx.stroke();
-
-    dbgCtx.fillStyle = detected ? "#00ff00" : "rgba(255,255,255,0.5)";
-    dbgCtx.font = "bold 12px monospace";
-    dbgCtx.fillText(`blob: ${blob.area}px²  min: ${MIN_AREA}`, 8, DH - 8);
+    // ── Debug view (commented out) ───────────────────────────────────────────
+    // const DW = dbgCanvas.clientWidth, DH = dbgCanvas.clientHeight;
+    // if (dbgCanvas.width !== DW || dbgCanvas.height !== DH) {
+    //   dbgCanvas.width = DW; dbgCanvas.height = DH;
+    // }
+    // // Webcam feed, mirrored
+    // dbgCtx.save();
+    // dbgCtx.translate(DW, 0);
+    // dbgCtx.scale(-1, 1);
+    // dbgCtx.drawImage(offscreen, 0, 0, DW, DH);
+    // dbgCtx.restore();
+    // // Motion overlay, mirrored to match feed
+    // fgCtx.putImageData(fgImgData, 0, 0);
+    // dbgCtx.save();
+    // dbgCtx.translate(DW, 0);
+    // dbgCtx.scale(-1, 1);
+    // dbgCtx.drawImage(fgCanvas, 0, 0, DW, DH);
+    // dbgCtx.restore();
+    // // Crosshair — green = detecting largest blob, gray = holding position
+    // const cx = trackSmooth.x * DW;
+    // const cy = trackSmooth.y * DH;
+    // dbgCtx.strokeStyle = detected ? "#00ff00" : "rgba(255,255,255,0.4)";
+    // dbgCtx.lineWidth = 2;
+    // dbgCtx.beginPath();
+    // dbgCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+    // dbgCtx.stroke();
+    // dbgCtx.beginPath();
+    // dbgCtx.moveTo(cx - 22, cy); dbgCtx.lineTo(cx + 22, cy);
+    // dbgCtx.moveTo(cx, cy - 22); dbgCtx.lineTo(cx, cy + 22);
+    // dbgCtx.stroke();
+    // dbgCtx.fillStyle = detected ? "#00ff00" : "rgba(255,255,255,0.5)";
+    // dbgCtx.font = "bold 12px monospace";
+    // dbgCtx.fillText(`blob: ${blob.area}px²  min: ${MIN_AREA}`, 8, DH - 8);
 
     requestAnimationFrame(processWebcamFrame);
   }
@@ -276,11 +337,11 @@ export function init(channel) {
   function startLoop() {
     fadingOut = false;
     if (rafId) return;
-    graphArea.classList.remove("hidden");
     paddleCanvas.style.display = "block";
     paddleCanvas.style.opacity = "0";
     paddleCanvas.getBoundingClientRect();
     paddleCanvas.style.opacity = "1";
+    if (ball) { ball.visible = true; resetBall(); }
     startWebcam();
     function loop() {
       renderPaddle();
@@ -296,7 +357,6 @@ export function init(channel) {
       rafId = null;
     }
     stopWebcam();
-    graphArea.classList.add("hidden");
     paddleCanvas.style.opacity = "0";
     paddleCanvas.addEventListener(
       "transitionend",
@@ -305,6 +365,7 @@ export function init(channel) {
     );
     orientation.alpha = orientation.beta = orientation.gamma = 0;
     if (paddle) { paddle.rotation.set(0, 0, 0); paddle.position.set(0, 0, 0); }
+    if (ball)   { ball.visible = false; bs.speed = INIT_VZ; }
   }
 
   // ── Channel ───────────────────────────────────────────────────────────────
