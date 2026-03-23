@@ -58,26 +58,35 @@ export function init(channel) {
   const buf8      = new Uint8ClampedArray(buf)
   const buf32     = new Uint32Array(buf)
 
-  // Create AudioContext immediately so we can read its native sample rate and
-  // pass it to jsnes — mismatched rates (e.g. jsnes 44100 vs ctx 48000) cause
-  // chronic underruns and crackling. It starts suspended; resumed on gesture.
+  // AudioContext is created lazily on the first user gesture to avoid the
+  // hardware-init pop that occurs when constructing it at page load.
+  // We fix the NES sample rate at 44100 and force the context to match,
+  // preventing the underrun/crackling from a rate mismatch.
+  const NES_SAMPLE_RATE = 44100
   const sampleQueue = []
-  const audioCtx = new AudioContext()
+  let audioCtx = null
+  let audioStarted = false
+
+  function ensureAudioCtx() {
+    if (!audioCtx) audioCtx = new AudioContext({ sampleRate: NES_SAMPLE_RATE })
+    return audioCtx
+  }
 
   function startAudio() {
-    const processor = audioCtx.createScriptProcessor(4096, 0, 1)
+    const ctx = ensureAudioCtx()
+    const processor = ctx.createScriptProcessor(4096, 0, 1)
     processor.onaudioprocess = (e) => {
       const out = e.outputBuffer.getChannelData(0)
       for (let i = 0; i < out.length; i++) {
         out[i] = sampleQueue.length > 0 ? sampleQueue.shift() : 0
       }
     }
-    processor.connect(audioCtx.destination)
+    processor.connect(ctx.destination)
   }
 
   const nes = new jsnes.NES({
     emulateSound: true,
-    sampleRate: audioCtx.sampleRate,
+    sampleRate: NES_SAMPLE_RATE,
     onAudioSample: (left, right) => {
       sampleQueue.push((left + right) / 2)
       // Prevent unbounded growth while audio is suspended
@@ -116,10 +125,14 @@ export function init(channel) {
     dpad = next
   }
 
-  // Resume audio on any user interaction — satisfies autoplay policy without
-  // requiring a dedicated click prompt.
+  // On the first user gesture: create the AudioContext, start the audio
+  // pipeline, and resume playback. Subsequent calls just resume.
   function resumeAudio() {
-    audioCtx.resume()
+    if (!audioStarted && romReady) {
+      startAudio()
+      audioStarted = true
+    }
+    ensureAudioCtx().resume()
     soundPrompt?.classList.add("hidden")
   }
   window.addEventListener("pointerdown", resumeAudio)
@@ -136,19 +149,19 @@ export function init(channel) {
       if (pendingState) { nes.fromJSON(JSON.parse(pendingState)); pendingState = null }
       romPrompt.classList.add("hidden")
       soundPrompt?.classList.remove("hidden")
-      startAudio()
+      // startAudio() is deferred to the first user gesture via resumeAudio()
       startLoop()
     })
 
   channel.on("pad_connected", () => {
     wrapper.classList.remove("hidden")
     wrapper.classList.add("flex")
-    audioCtx.resume()
+    audioCtx?.resume()
   })
   channel.on("pad_disconnected", () => {
     wrapper.classList.add("hidden")
     wrapper.classList.remove("flex")
-    audioCtx.suspend()
+    audioCtx?.suspend()
   })
   channel.on("stick", ({ x, y }) => applyDpad(x, y))
 

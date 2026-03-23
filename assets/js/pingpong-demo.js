@@ -88,7 +88,7 @@ export function init(channel) {
   let webcamActive    = false;
   let webcamStream    = null;
 
-  const CAM_W = 160, CAM_H = 120;
+  const CAM_W = 320, CAM_H = 240;
   const offscreen = document.createElement("canvas");
   offscreen.width  = CAM_W;
   offscreen.height = CAM_H;
@@ -100,11 +100,54 @@ export function init(channel) {
   const fgCtx     = fgCanvas.getContext("2d");
   const fgImgData = fgCtx.createImageData(CAM_W, CAM_H);
 
-  let prevData      = null;   // previous frame pixel data
-  const DIFF_THRESH = 20;     // sum-of-channels threshold to call a pixel "moved"
-  const MIN_BLOB    = 100;    // minimum motion pixels required to trust centroid
-  const SMOOTH      = 0.15;
-  const trackSmooth = { x: 0.5, y: 0.5 };
+  let prevData      = null;
+  const DIFF_THRESH  = 30;    // per-channel threshold to mark a pixel as motion
+  const MIN_AREA     = 400;   // minimum blob area (px²) to count as the phone
+  const SMOOTH       = 0.08;  // EMA factor: lower = smoother but more lag
+  const DEAD_ZONE    = 0.01;  // normalised units; ignore centroid shifts smaller than this
+  const trackSmooth  = { x: 0.5, y: 0.5 };
+
+  // Reusable typed arrays (allocated once, not per frame)
+  const mask     = new Uint8Array(CAM_W * CAM_H);
+  const visited  = new Uint8Array(CAM_W * CAM_H);
+  const bfsQueue = new Int32Array(CAM_W * CAM_H);
+
+  // Find the largest 4-connected blob in `mask` using BFS.
+  // Returns { area, cx, cy } of the largest blob, or { area: 0 } if none.
+  function largestBlob() {
+    visited.fill(0);
+    let bestArea = 0, bestCx = 0, bestCy = 0;
+
+    for (let start = 0; start < CAM_W * CAM_H; start++) {
+      if (!mask[start] || visited[start]) continue;
+
+      // BFS
+      let head = 0, tail = 0;
+      bfsQueue[tail++] = start;
+      visited[start] = 1;
+      let area = 0, sumX = 0, sumY = 0;
+
+      while (head < tail) {
+        const idx = bfsQueue[head++];
+        area++;
+        sumX += idx % CAM_W;
+        sumY  = sumY + ((idx / CAM_W) | 0);
+
+        const x = idx % CAM_W, y = (idx / CAM_W) | 0;
+        if (x > 0          && mask[idx - 1]       && !visited[idx - 1])       { visited[idx - 1]       = 1; bfsQueue[tail++] = idx - 1; }
+        if (x < CAM_W - 1  && mask[idx + 1]       && !visited[idx + 1])       { visited[idx + 1]       = 1; bfsQueue[tail++] = idx + 1; }
+        if (y > 0          && mask[idx - CAM_W]   && !visited[idx - CAM_W])   { visited[idx - CAM_W]   = 1; bfsQueue[tail++] = idx - CAM_W; }
+        if (y < CAM_H - 1  && mask[idx + CAM_W]   && !visited[idx + CAM_W])   { visited[idx + CAM_W]   = 1; bfsQueue[tail++] = idx + CAM_W; }
+      }
+
+      if (area > bestArea) {
+        bestArea = area;
+        bestCx = sumX / area;
+        bestCy = sumY / area;
+      }
+    }
+    return bestArea >= MIN_AREA ? { area: bestArea, cx: bestCx, cy: bestCy } : { area: 0 };
+  }
 
   function processWebcamFrame() {
     if (!webcamActive) return;
@@ -118,43 +161,40 @@ export function init(channel) {
       return;
     }
 
-    let sumX = 0, sumY = 0, count = 0;
-
+    // Build binary motion mask and debug overlay in one pass
     for (let i = 0; i < CAM_W * CAM_H; i++) {
       const p = i * 4;
-      const diff = Math.abs(data[p] - prevData[p])
+      const diff = Math.abs(data[p]   - prevData[p])
                  + Math.abs(data[p+1] - prevData[p+1])
                  + Math.abs(data[p+2] - prevData[p+2]);
-      const isFg = diff > DIFF_THRESH;
+      mask[i] = diff > DIFF_THRESH ? 1 : 0;
 
-      // Build overlay: brighter green for larger differences
       fgImgData.data[p]     = 50;
       fgImgData.data[p + 1] = 220;
       fgImgData.data[p + 2] = 50;
-      fgImgData.data[p + 3] = isFg ? Math.min(255, diff * 2) : 0;
-
-      if (isFg) {
-        sumX += i % CAM_W;
-        sumY += Math.floor(i / CAM_W);
-        count++;
-      }
+      fgImgData.data[p + 3] = mask[i] ? Math.min(255, diff * 2) : 0;
     }
 
-    // Always copy current frame to prev BEFORE early-returning
     prevData.set(data);
 
-    const detected = count > MIN_BLOB;
+    const blob     = largestBlob();
+    const detected = blob.area > 0;
+
     if (detected) {
-      const nx = 1 - sumX / count / CAM_W; // mirror X to match display
-      const ny = sumY / count / CAM_H;
-      trackSmooth.x += (nx - trackSmooth.x) * SMOOTH;
-      trackSmooth.y += (ny - trackSmooth.y) * SMOOTH;
-      const aspect = rendererW > 0 ? rendererW / rendererH : camera.aspect;
-      const halfH  = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
-      const halfW  = halfH * aspect;
-      trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW;
-      trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH;
+      const nx = 1 - blob.cx / CAM_W; // mirror X
+      const ny = blob.cy / CAM_H;
+      const dx = nx - trackSmooth.x, dy = ny - trackSmooth.y;
+      // Dead zone: ignore micro-shifts so stationary phone doesn't jitter
+      if (Math.abs(dx) > DEAD_ZONE) trackSmooth.x += dx * SMOOTH;
+      if (Math.abs(dy) > DEAD_ZONE) trackSmooth.y += dy * SMOOTH;
     }
+    // When not detected: hold last position.
+
+    const aspect = rendererW > 0 ? rendererW / rendererH : camera.aspect;
+    const halfH  = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
+    const halfW  = halfH * aspect;
+    trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW;
+    trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH;
 
     // ── Debug view ──────────────────────────────────────────────────────────
     const DW = dbgCanvas.clientWidth, DH = dbgCanvas.clientHeight;
@@ -177,8 +217,7 @@ export function init(channel) {
     dbgCtx.drawImage(fgCanvas, 0, 0, DW, DH);
     dbgCtx.restore();
 
-    // Crosshair — always visible so you can see where the tracker thinks the
-    // phone is even when not actively detecting. Green = detecting, gray = holding.
+    // Crosshair — green = detecting largest blob, gray = holding position
     const cx = trackSmooth.x * DW;
     const cy = trackSmooth.y * DH;
     dbgCtx.strokeStyle = detected ? "#00ff00" : "rgba(255,255,255,0.4)";
@@ -191,10 +230,9 @@ export function init(channel) {
     dbgCtx.moveTo(cx, cy - 22); dbgCtx.lineTo(cx, cy + 22);
     dbgCtx.stroke();
 
-    // Pixel count so you can see if detection is firing at all
     dbgCtx.fillStyle = detected ? "#00ff00" : "rgba(255,255,255,0.5)";
     dbgCtx.font = "bold 12px monospace";
-    dbgCtx.fillText(`motion px: ${count}  min: ${MIN_BLOB}`, 8, DH - 8);
+    dbgCtx.fillText(`blob: ${blob.area}px²  min: ${MIN_AREA}`, 8, DH - 8);
 
     requestAnimationFrame(processWebcamFrame);
   }
