@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export function init(channel) {
   const paddleCanvas = document.getElementById("paddle-canvas");
+  const qrGrid       = document.getElementById("qr-grid");
 
   // ── Paddle (Three.js) ─────────────────────────────────────────────────────
 
@@ -365,6 +366,7 @@ export function init(channel) {
     paddleCanvas.getBoundingClientRect();
     paddleCanvas.style.opacity = "1";
     if (ball) { ball.visible = true; resetBall(); }
+    if (qrGrid) qrGrid.style.opacity = "0";
     startWebcam();
     function loop() {
       renderPaddle();
@@ -380,6 +382,7 @@ export function init(channel) {
       rafId = null;
     }
     stopWebcam();
+    if (qrGrid) qrGrid.style.opacity = "1";
     paddleCanvas.style.opacity = "0";
     paddleCanvas.addEventListener(
       "transitionend",
