@@ -191,6 +191,8 @@ export function init(channel) {
   const MIN_AREA     = 400;   // minimum blob area (px²) to count as the phone
   const SMOOTH       = 0.08;  // EMA factor: lower = smoother but more lag
   const DEAD_ZONE    = 0.01;  // normalised units; ignore centroid shifts smaller than this
+  const TRACK_SCALE  = 1.8;   // expand tracking range: webcam edge → paddle overshoots center,
+                               // so full paddle range is reachable before the phone leaves frame
   const trackSmooth  = { x: 0.5, y: 0.5 };
 
   // Reusable typed arrays (allocated once, not per frame)
@@ -279,8 +281,8 @@ export function init(channel) {
     const aspect = rendererW > 0 ? rendererW / rendererH : camera.aspect;
     const halfH  = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
     const halfW  = halfH * aspect;
-    trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW;
-    trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH;
+    trackPos.x = (trackSmooth.x - 0.5) * 2 * halfW * TRACK_SCALE;
+    trackPos.y = (0.5 - trackSmooth.y) * 2 * halfH * TRACK_SCALE;
 
     // ── Debug view (commented out) ───────────────────────────────────────────
     // const DW = dbgCanvas.clientWidth, DH = dbgCanvas.clientHeight;
