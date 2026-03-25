@@ -31,7 +31,7 @@ export function init(channel) {
 
   let paddle = null;
   const orientation = { alpha: 0, beta: 0, gamma: 0 };
-  const trackPos    = { x: 0, y: 0 };
+  const trackPos    = { x: 0, y: 0, z: 0 };
 
   const loader = new GLTFLoader();
   loader.load("/assets/paddle.glb", (gltf) => {
@@ -60,17 +60,20 @@ export function init(channel) {
   const WALL_X       = 3.5;   // half-width of side walls
   const WALL_Y       = 2.5;   // half-height of top/bottom walls
   const BALL_START_Z = -2;    // spawn just behind the paddle
-  const INIT_VZ      = 0.07;  // initial approach speed (world units / frame @ 60 fps)
+  const INIT_VZ      = 0.15;  // initial approach speed (world units / frame @ 60 fps)
+  const GRAVITY      = 0.004; // downward acceleration per frame
+  const RESTITUTION  = 0.88;  // fraction of velocity kept after a wall bounce
+  const AIR_DRAG     = 0.999; // per-frame velocity multiplier (very slight drag)
 
   // Ball physics state
   const bs = { x: 0, y: 0, z: BALL_START_Z, vx: 0, vy: 0, vz: -INIT_VZ, speed: INIT_VZ };
 
   function resetBall() {
     bs.x  = (Math.random() - 0.5) * 1.5;
-    bs.y  = (Math.random() - 0.5) * 0.8;
+    bs.y  = 0.3;
     bs.z  = BALL_START_Z;
     bs.vx = (Math.random() - 0.5) * 0.03;
-    bs.vy = (Math.random() - 0.5) * 0.02;
+    bs.vy = 0.04;   // slight upward launch so it arcs before dropping
     bs.vz = -bs.speed;  // start moving away from camera
   }
 
@@ -86,28 +89,35 @@ export function init(channel) {
   function updateBall() {
     if (!ball) return;
 
+    // Gravity and drag
+    bs.vy -= GRAVITY;
+    bs.vx *= AIR_DRAG;
+    bs.vy *= AIR_DRAG;
+    bs.vz *= AIR_DRAG;
+
     bs.x += bs.vx;
     bs.y += bs.vy;
     bs.z += bs.vz;
 
     // Back wall
-    if (bs.z <= BACK_WALL_Z) { bs.z = BACK_WALL_Z; bs.vz =  Math.abs(bs.vz); }
+    if (bs.z <= BACK_WALL_Z) { bs.z = BACK_WALL_Z; bs.vz =  Math.abs(bs.vz) * RESTITUTION; }
     // Side walls
-    if (bs.x <= -WALL_X)     { bs.x = -WALL_X;     bs.vx =  Math.abs(bs.vx); }
-    if (bs.x >=  WALL_X)     { bs.x =  WALL_X;     bs.vx = -Math.abs(bs.vx); }
-    // Top / bottom walls
-    if (bs.y <= -WALL_Y)     { bs.y = -WALL_Y;     bs.vy =  Math.abs(bs.vy); }
-    if (bs.y >=  WALL_Y)     { bs.y =  WALL_Y;     bs.vy = -Math.abs(bs.vy); }
+    if (bs.x <= -WALL_X)     { bs.x = -WALL_X;     bs.vx =  Math.abs(bs.vx) * RESTITUTION; }
+    if (bs.x >=  WALL_X)     { bs.x =  WALL_X;     bs.vx = -Math.abs(bs.vx) * RESTITUTION; }
+    // Floor / ceiling
+    if (bs.y <= -WALL_Y)     { bs.y = -WALL_Y;     bs.vy =  Math.abs(bs.vy) * RESTITUTION; }
+    if (bs.y >=  WALL_Y)     { bs.y =  WALL_Y;     bs.vy = -Math.abs(bs.vy) * RESTITUTION; }
 
     // Collision: ball crosses the paddle plane while still approaching
-    if (bs.vz > 0 && bs.z >= PADDLE_Z - 0.2 && bs.z <= PADDLE_Z + 0.5) {
+    const pz = trackPos.z;
+    if (bs.vz > 0 && bs.z >= pz - 0.2 && bs.z <= pz + 0.5) {
       const dx = bs.x - trackPos.x;
       const dy = bs.y - trackPos.y;
       if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) {
         bs.speed  = Math.min(bs.speed * 1.08, 0.25); // rally: speed up each hit, cap at 0.25
         bs.vz     = -bs.speed;
         bs.vx     = dx * 0.04;                        // deflect off-centre hits
-        bs.vy     = dy * 0.04;
+        bs.vy     = dy * 0.04 + 0.06;                 // upward kick on every hit
       }
     }
 
@@ -160,6 +170,7 @@ export function init(channel) {
       paddle.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma);
       paddle.position.x = trackPos.x;
       paddle.position.y = trackPos.y;
+      paddle.position.z = trackPos.z;
     }
     updateBall();
     renderer.render(scene, camera);
@@ -195,6 +206,27 @@ export function init(channel) {
   const TRACK_SCALE  = 1.8;   // expand tracking range: webcam edge → paddle overshoots center,
                                // so full paddle range is reachable before the phone leaves frame
   const trackSmooth  = { x: 0.5, y: 0.5 };
+
+  // ── Paddle depth (z) ──────────────────────────────────────────────────────
+  // Driven by two complementary signals:
+  //   1. Blob area: phone closer to webcam → larger blob → paddle moves forward.
+  //      A slow-adapting reference keeps the neutral at whatever distance the
+  //      player settles at, so only intentional pushes/pulls register.
+  //   2. Accelerometer az: phone's own z-axis acceleration. Integrated with fast
+  //      decay so deliberate thrusts add snap without drifting over time.
+  const BLOB_REF_RATE   = 0.004;  // how fast the area reference drifts to new distance
+  const BLOB_DEPTH_SCALE = 3.0;   // world units of paddle travel per unit of relative area change
+  const DEPTH_SMOOTH    = 0.08;   // EMA for blob-based depth
+  const ACCEL_SCALE     = 0.006;  // az (m/s²) → velocity scaling
+  const ACCEL_VEL_DECAY = 0.85;   // velocity decay per frame (fast, avoids drift)
+  const ACCEL_POS_DECAY = 0.96;   // accel-derived position decays back to 0
+  const PADDLE_Z_MIN    = -1.5;
+  const PADDLE_Z_MAX    =  2.0;
+
+  let blobAreaRef  = -1;   // -1 = not yet seeded
+  let blobDepth    = 0;    // blob-area contribution to paddle z
+  let accelZVel    = 0;
+  let accelZPos    = 0;
 
   // Reusable typed arrays (allocated once, not per frame)
   const mask     = new Uint8Array(CAM_W * CAM_H);
@@ -276,8 +308,16 @@ export function init(channel) {
       // Dead zone: ignore micro-shifts so stationary phone doesn't jitter
       if (Math.abs(dx) > DEAD_ZONE) trackSmooth.x += dx * SMOOTH;
       if (Math.abs(dy) > DEAD_ZONE) trackSmooth.y += dy * SMOOTH;
+
+      // Blob area → depth: seed reference on first detection, then adapt slowly
+      if (blobAreaRef < 0) blobAreaRef = blob.area;
+      else blobAreaRef += (blob.area - blobAreaRef) * BLOB_REF_RATE;
+      const relSize = (blob.area / blobAreaRef) - 1; // >0 = closer, <0 = farther
+      blobDepth += (relSize * BLOB_DEPTH_SCALE - blobDepth) * DEPTH_SMOOTH;
     }
-    // When not detected: hold last position.
+    // When not detected: hold last positions.
+
+    trackPos.z = THREE.MathUtils.clamp(blobDepth + accelZPos, PADDLE_Z_MIN, PADDLE_Z_MAX);
 
     const aspect = rendererW > 0 ? rendererW / rendererH : camera.aspect;
     const halfH  = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
@@ -348,7 +388,8 @@ export function init(channel) {
     }
     prevData = null;
     trackSmooth.x = trackSmooth.y = 0.5;
-    trackPos.x = trackPos.y = 0;
+    trackPos.x = trackPos.y = trackPos.z = 0;
+    blobAreaRef = -1; blobDepth = 0; accelZVel = 0; accelZPos = 0;
   }
 
   // ── Loop ──────────────────────────────────────────────────────────────────
@@ -405,5 +446,10 @@ export function init(channel) {
     orientation.gamma = gamma || 0;
   });
 
-  channel.on("motion", () => {});
+  channel.on("motion", ({ az }) => {
+    accelZVel += (az || 0) * ACCEL_SCALE;
+    accelZVel *= ACCEL_VEL_DECAY;
+    accelZPos += accelZVel;
+    accelZPos *= ACCEL_POS_DECAY;
+  });
 }
