@@ -16,6 +16,7 @@ export function init(channel) {
   const graphArea = document.getElementById("graph-area");
   const graphCanvas = document.getElementById("graph-canvas");
   const fishCanvas = document.getElementById("fish-canvas");
+  const qrGrid     = document.getElementById("qr-grid");
 
   // ── Graph ─────────────────────────────────────────────────────────────────
 
@@ -162,12 +163,27 @@ export function init(channel) {
   const restQ = {};       // name → Quaternion (rest pose)
   const _tmpQ = new THREE.Quaternion();
   const _tmpQ2 = new THREE.Quaternion();
+  const _tmpQ3 = new THREE.Quaternion();
   const _X = new THREE.Vector3(1, 0, 0);
+  const _Y = new THREE.Vector3(0, 1, 0);
   const _Z = new THREE.Vector3(0, 0, 1);
-  const fishTargetQ = new THREE.Quaternion();
-  const fishEuler = new THREE.Euler(0, 0, 0, "YXZ");
-  const ORIENT_SLERP  = 0.1;  // fraction per frame toward target orientation
   const WIGGLE_SMOOTH = 0.15; // exponential smoothing for wiggle energy
+
+  // Head-leads-body turning: headYaw/Pitch follow the phone quickly;
+  // bodyYaw/Pitch follow headYaw/Pitch slowly.  The pivot is set to the
+  // body direction (controlling movement), and the spine bones are bent
+  // to bridge the gap so the head always turns first.
+  let headYaw = 0, bodyYaw = 0;
+  let headPitch = 0, bodyPitch = 0;
+  const HEAD_FOLLOW  = 0.2;  // fraction per frame: head → phone
+  const BODY_FOLLOW  = 0.06; // fraction per frame: body → head
+  const MAX_TURN_BEND = 0.6; // max turn delta absorbed by spine (radians ~34°)
+
+  // Wrap an angle to [-PI, PI]
+  function wrapAngle(a) {
+    const PI2 = 2 * Math.PI;
+    return a - PI2 * Math.floor((a + Math.PI) / PI2);
+  }
 
   // Fish position (world units) + scalar forward speed (always >= 0)
   let posX = 0,
@@ -233,14 +249,20 @@ export function init(channel) {
     resizeFish();
 
     if (fish) {
-      // Scalar speed along current heading — fish can only move forward.
-      // Forward direction from YXZ Euler (same order as fish.rotation.order):
-      //   fwd = Ry(α) · Rx(β) · [0, 0, 1] = (sin α cos β, -sin β, cos α cos β)
-      const a = THREE.MathUtils.degToRad(orientation.alpha);
-      const b = THREE.MathUtils.degToRad(orientation.beta);
-      const fwdX = -Math.sin(a) * Math.cos(b);
-      const fwdY = Math.sin(b);
-      const fwdZ = -Math.cos(a) * Math.cos(b);
+      // Head/body tracking: head reacts quickly, body lags behind.
+      // The pivot is driven by bodyYaw so the fish moves in the body direction;
+      // spine bones bend to bridge the head→body angle gap each frame.
+      const targetYaw   = THREE.MathUtils.degToRad(orientation.alpha);
+      const targetPitch = THREE.MathUtils.degToRad(orientation.beta * 0.5);
+      headYaw   += wrapAngle(targetYaw   - headYaw)   * HEAD_FOLLOW;
+      bodyYaw   += wrapAngle(headYaw     - bodyYaw)   * BODY_FOLLOW;
+      headPitch += (targetPitch - headPitch) * HEAD_FOLLOW;
+      bodyPitch += (headPitch   - bodyPitch) * BODY_FOLLOW;
+
+      // Fish moves in body direction (body = propulsion source, not head)
+      const fwdX = -Math.sin(bodyYaw) * Math.cos(bodyPitch);
+      const fwdY =  Math.sin(bodyPitch);
+      const fwdZ = -Math.cos(bodyYaw) * Math.cos(bodyPitch);
       fishSpeed = fishSpeed * FISH_FRICTION + wiggleEnergy * FISH_SPEED;
       posX += fwdX * fishSpeed;
       posY += fwdY * fishSpeed;
@@ -279,15 +301,17 @@ export function init(channel) {
 
       fish.position.set(posX, posY, posZ);
 
-      // Smooth orientation: slerp toward the target quaternion each frame so
-      // sensor noise and quick turns don't cause the fish to snap around.
-      fishEuler.set(
-        THREE.MathUtils.degToRad(orientation.beta * 0.5),
-        THREE.MathUtils.degToRad(orientation.alpha),
-        THREE.MathUtils.degToRad(-orientation.gamma * 0.5),
-      );
-      fishTargetQ.setFromEuler(fishEuler);
-      fish.quaternion.slerp(fishTargetQ, ORIENT_SLERP);
+      // Pivot = body direction.  Head leads via spine bone bending below.
+      fish.rotation.order = "YXZ";
+      fish.rotation.y = bodyYaw;
+      fish.rotation.x = bodyPitch;
+      fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma * 0.5);
+
+      // How far ahead the head has turned relative to the body.
+      // Clamped so extreme nose-over-tail phone angles don't deform the fish.
+      const N = SPINE_BONES.length;
+      const deltaYaw = Math.max(-MAX_TURN_BEND,
+        Math.min(MAX_TURN_BEND, wrapAngle(headYaw - bodyYaw)));
 
       // ── Procedural bone animation ────────────────────────────────────────
       timer.update();
@@ -298,23 +322,28 @@ export function init(channel) {
       const SWIM_FREQ = 6.0;   // rad/s added at full wiggle energy
       wigglePhase += dt * (IDLE_FREQ + wiggleEnergy * SWIM_FREQ);
 
-      // Spine: traveling sine wave, head→tail (Godot-style).
-      // Bone-local X is the lateral axis; Z is the roll/twist axis.
-      // smoothstep mask keeps the head rigid and concentrates movement toward
-      // the tail, matching how real fish swim. The twist component (cosine,
-      // 90° out of phase with the lateral wave) adds the corkscrew roll that
-      // makes swimming feel 3D rather than flat.
+      // Spine: traveling sine wave + turn bending, head→tail (Godot-style).
+      // Bone-local X = lateral wiggle, Z = roll/twist, Y = yaw (turn).
+      //
+      // Turn bending distributes deltaYaw as a smooth arc across the spine.
+      // Hierarchy is Bone008 (root/tail) → … → Bone001 (tip/head): each bone
+      // gets an equal local deltaYaw/N so the accumulated world yaw increases
+      // bone-by-bone from bodyYaw at the tail to headYaw at the head.
       SPINE_BONES.forEach((name, i) => {
         const bone = bones[name];
         if (!bone || !restQ[name]) return;
-        const t = i / (SPINE_BONES.length - 1); // 0 = head, 1 = tail
+        const t = i / (N - 1); // 0 = head, 1 = tail
         const phase = wigglePhase - t * Math.PI * 1.5;
         const mask = THREE.MathUtils.smoothstep(t, 0.15, 0.85);
         const amp      = mask * 0.45 * (0.3 + wiggleEnergy * 0.7);
         const twistAmp = mask * 0.12 * wiggleEnergy;
+        // Hierarchy is Bone008 (root/tail) → … → Bone001 (tip/head), so equal
+        // local rotations accumulate: tail gets deltaYaw/N, head gets N*(deltaYaw/N) = deltaYaw.
+        const turnAngle = deltaYaw / N;
         _tmpQ.setFromAxisAngle(_X,  Math.sin(phase) * amp);
         _tmpQ2.setFromAxisAngle(_Z, Math.cos(phase) * twistAmp);
-        bone.quaternion.copy(restQ[name]).multiply(_tmpQ).multiply(_tmpQ2);
+        _tmpQ3.setFromAxisAngle(_Y, turnAngle);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ3).multiply(_tmpQ).multiply(_tmpQ2);
       });
 
       // Tail lobes: spread outward with speed
@@ -360,6 +389,7 @@ export function init(channel) {
   function startLoop() {
     fadingOut = false; // cancel any in-progress fade-out
     if (rafId) return;
+    if (qrGrid) qrGrid.style.opacity = "0";
     fishCanvas.style.display = "block";
     fishCanvas.style.opacity = "0";
     fishCanvas.getBoundingClientRect(); // force reflow so transition fires
@@ -378,6 +408,7 @@ export function init(channel) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    if (qrGrid) qrGrid.style.opacity = "1";
     fishCanvas.style.opacity = "0";
     fishCanvas.addEventListener(
       "transitionend",
@@ -392,6 +423,7 @@ export function init(channel) {
     alphaDeltas.length = 0;
     posY = 1.2;
     wigglePhase = 0;
+    headYaw = bodyYaw = headPitch = bodyPitch = 0;
     if (fish) fish.position.set(0, 1.2, 0);
     [...SPINE_BONES, ...FIN_BONES].forEach((name) => {
       if (bones[name] && restQ[name]) bones[name].quaternion.copy(restQ[name]);
