@@ -11,7 +11,7 @@ defmodule Gamepad.Application do
       GamepadWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:gamepad, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Gamepad.PubSub},
-      GamepadWeb.SensorGraphState,
+      GamepadWeb.FishDemoState,
       # Start a worker by calling: Gamepad.Worker.start_link(arg)
       # {Gamepad.Worker, arg},
       # Start to serve requests, typically the last entry

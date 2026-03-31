@@ -11,7 +11,7 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 import "./computer"
 import "./pad"
 import "./sensor"
-import "./sensor-graph"
+import "./fish-demo-phone"
 import "./pingpong"
 
 // Enable live_reload dev tools (server log streaming, click-to-editor)

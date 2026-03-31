@@ -161,8 +161,13 @@ export function init(channel) {
   const bones = {};       // name → Object3D
   const restQ = {};       // name → Quaternion (rest pose)
   const _tmpQ = new THREE.Quaternion();
+  const _tmpQ2 = new THREE.Quaternion();
   const _X = new THREE.Vector3(1, 0, 0);
   const _Z = new THREE.Vector3(0, 0, 1);
+  const fishTargetQ = new THREE.Quaternion();
+  const fishEuler = new THREE.Euler(0, 0, 0, "YXZ");
+  const ORIENT_SLERP  = 0.1;  // fraction per frame toward target orientation
+  const WIGGLE_SMOOTH = 0.15; // exponential smoothing for wiggle energy
 
   // Fish position (world units) + scalar forward speed (always >= 0)
   let posX = 0,
@@ -274,10 +279,15 @@ export function init(channel) {
 
       fish.position.set(posX, posY, posZ);
 
-      fish.rotation.order = "YXZ";
-      fish.rotation.y = THREE.MathUtils.degToRad(orientation.alpha);
-      fish.rotation.x = THREE.MathUtils.degToRad(orientation.beta * 0.5);
-      fish.rotation.z = THREE.MathUtils.degToRad(-orientation.gamma * 0.5);
+      // Smooth orientation: slerp toward the target quaternion each frame so
+      // sensor noise and quick turns don't cause the fish to snap around.
+      fishEuler.set(
+        THREE.MathUtils.degToRad(orientation.beta * 0.5),
+        THREE.MathUtils.degToRad(orientation.alpha),
+        THREE.MathUtils.degToRad(-orientation.gamma * 0.5),
+      );
+      fishTargetQ.setFromEuler(fishEuler);
+      fish.quaternion.slerp(fishTargetQ, ORIENT_SLERP);
 
       // ── Procedural bone animation ────────────────────────────────────────
       timer.update();
@@ -288,17 +298,23 @@ export function init(channel) {
       const SWIM_FREQ = 6.0;   // rad/s added at full wiggle energy
       wigglePhase += dt * (IDLE_FREQ + wiggleEnergy * SWIM_FREQ);
 
-      // Spine: traveling sine wave, head→tail.
-      // Bone-local X is the lateral axis (confirmed from Swim Animation keyframes).
-      // Amplitude envelope: near-zero at head, peaks at tail.
+      // Spine: traveling sine wave, head→tail (Godot-style).
+      // Bone-local X is the lateral axis; Z is the roll/twist axis.
+      // smoothstep mask keeps the head rigid and concentrates movement toward
+      // the tail, matching how real fish swim. The twist component (cosine,
+      // 90° out of phase with the lateral wave) adds the corkscrew roll that
+      // makes swimming feel 3D rather than flat.
       SPINE_BONES.forEach((name, i) => {
         const bone = bones[name];
         if (!bone || !restQ[name]) return;
         const t = i / (SPINE_BONES.length - 1); // 0 = head, 1 = tail
         const phase = wigglePhase - t * Math.PI * 1.5;
-        const amp = (0.05 + t * 0.35) * (0.3 + wiggleEnergy * 0.7);
-        _tmpQ.setFromAxisAngle(_X, Math.sin(phase) * amp);
-        bone.quaternion.copy(restQ[name]).multiply(_tmpQ);
+        const mask = THREE.MathUtils.smoothstep(t, 0.15, 0.85);
+        const amp      = mask * 0.45 * (0.3 + wiggleEnergy * 0.7);
+        const twistAmp = mask * 0.12 * wiggleEnergy;
+        _tmpQ.setFromAxisAngle(_X,  Math.sin(phase) * amp);
+        _tmpQ2.setFromAxisAngle(_Z, Math.cos(phase) * twistAmp);
+        bone.quaternion.copy(restQ[name]).multiply(_tmpQ).multiply(_tmpQ2);
       });
 
       // Tail lobes: spread outward with speed
@@ -311,7 +327,7 @@ export function init(channel) {
       });
 
       // Pectoral fins: alternating flap in phase with the swim cycle
-      ["Left_fin_013", "Right_fin_013"].forEach((name, i) => {
+      ["Left_fin_013", "Right_fin_014"].forEach((name, i) => {
         const bone = bones[name];
         if (!bone || !restQ[name]) return;
         const side = i === 0 ? 1 : -1;
@@ -384,11 +400,11 @@ export function init(channel) {
 
   // ── Channel ───────────────────────────────────────────────────────────────
 
-  channel.on("sensor_graph_connected", () => {
+  channel.on("fish_demo_connected", () => {
     // graphArea.classList.remove("hidden");
     startLoop();
   });
-  channel.on("sensor_graph_disconnected", () => {
+  channel.on("fish_demo_disconnected", () => {
     stopLoop();
     graphArea.classList.add("hidden");
   });
@@ -416,7 +432,8 @@ export function init(channel) {
       )
         reversals++;
     }
-    wiggleEnergy = reversals / Math.max(1, alphaDeltas.length - 1);
+    const rawEnergy = reversals / Math.max(1, alphaDeltas.length - 1);
+    wiggleEnergy = wiggleEnergy * (1 - WIGGLE_SMOOTH) + rawEnergy * WIGGLE_SMOOTH;
 
     push("beta", beta);
     push("gamma", gamma);

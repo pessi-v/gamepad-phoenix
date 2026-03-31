@@ -20,7 +20,7 @@ defmodule GamepadWeb.Router do
     get "/", PageController, :home
     get "/pad/:session_id", PadController, :pad
     get "/sensor/:session_id", SensorController, :sensor
-    get "/sensor-graph/:session_id", SensorGraphController, :sensor_graph
+    get "/fish-demo/:session_id", FishDemoController, :fish_demo
     get "/pingpong/:session_id", PingpongController, :pingpong
   end
 
@@ -30,7 +30,7 @@ defmodule GamepadWeb.Router do
 
       get "/pad", PadController, :pad_preview
       get "/sensor", SensorController, :sensor_preview
-      get "/sensor-graph", SensorGraphController, :sensor_graph_preview
+      get "/fish-demo", FishDemoController, :fish_demo_preview
     end
   end
 

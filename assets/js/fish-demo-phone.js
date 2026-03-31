@@ -1,26 +1,26 @@
 import { Socket } from "phoenix"
 
-const el = document.getElementById("sensor-graph-data")
+const el = document.getElementById("fish-demo-data")
 if (!el) {
-  // Not on the sensor-graph page
+  // Not on the fish-demo page
 } else {
   const sessionId = el.dataset.sessionId
 
   const socket = new Socket("/socket", {})
   socket.connect()
 
-  const channel = socket.channel(`sensor_graph:${sessionId}`, {})
+  const channel = socket.channel(`fish_demo:${sessionId}`, {})
   channel.join()
-    .receive("error", (err) => console.error("[SensorGraph] join error", err))
+    .receive("error", (err) => console.error("[FishDemo] join error", err))
 
   window.addEventListener("beforeunload", () => channel.leave())
 
-  const waitingEl  = document.getElementById("sensor-graph-waiting")
-  const activeEl   = document.getElementById("sensor-graph-active")
-  const statusText = document.getElementById("sensor-graph-status")
+  const waitingEl  = document.getElementById("fish-demo-waiting")
+  const activeEl   = document.getElementById("fish-demo-active")
+  const statusText = document.getElementById("fish-demo-status")
 
   function setError(msg) {
-    console.error("[SensorGraph]", msg)
+    console.error("[FishDemo]", msg)
     statusText.textContent = msg
   }
 
@@ -29,7 +29,7 @@ if (!el) {
     try {
       wakeLock = await navigator.wakeLock.request("screen")
     } catch (err) {
-      console.warn("[SensorGraph] Wake lock failed:", err)
+      console.warn("[FishDemo] Wake lock failed:", err)
     }
   }
   document.addEventListener("visibilitychange", () => {
@@ -39,7 +39,7 @@ if (!el) {
   let started = false
 
   // bfcache: when the page is restored from back-forward cache, JS state is
-  // preserved (including started=true), so reset it to allow sensor_graph_join
+  // preserved (including started=true), so reset it to allow fish_demo_join
   // to be sent again on the next sensor event.
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) started = false
@@ -66,7 +66,7 @@ if (!el) {
         started = true
         clearTimeout(timeout)
         requestWakeLock()
-        channel.push("sensor_graph_join", {})
+        channel.push("fish_demo_join", {})
         waitingEl.classList.add("hidden")
         activeEl.classList.remove("hidden")
       }

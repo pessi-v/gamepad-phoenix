@@ -1,4 +1,4 @@
-defmodule GamepadWeb.SensorGraphState do
+defmodule GamepadWeb.FishDemoState do
   use Agent
 
   # State: %{session_id => active_pid}

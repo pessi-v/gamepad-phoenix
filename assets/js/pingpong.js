@@ -9,7 +9,7 @@ if (!el) {
   const socket = new Socket("/socket", {})
   socket.connect()
 
-  const channel = socket.channel(`sensor_graph:${sessionId}`, {})
+  const channel = socket.channel(`fish_demo:${sessionId}`, {})
   channel.join()
     .receive("error", (err) => console.error("[Pingpong] join error", err))
 
@@ -63,7 +63,7 @@ if (!el) {
         started = true
         clearTimeout(timeout)
         requestWakeLock()
-        channel.push("sensor_graph_join", {})
+        channel.push("fish_demo_join", {})
         waitingEl.classList.add("hidden")
         activeEl.classList.remove("hidden")
       }

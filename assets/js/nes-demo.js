@@ -128,6 +128,7 @@ export function init(channel) {
   // On the first user gesture: create the AudioContext, start the audio
   // pipeline, and resume playback. Subsequent calls just resume.
   function resumeAudio() {
+    if (wrapper.classList.contains("hidden")) return
     if (!audioStarted && romReady) {
       startAudio()
       audioStarted = true

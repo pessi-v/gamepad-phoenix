@@ -437,8 +437,8 @@ export function init(channel) {
 
   // ── Channel ───────────────────────────────────────────────────────────────
 
-  channel.on("sensor_graph_connected", () => startLoop());
-  channel.on("sensor_graph_disconnected", () => stopLoop());
+  channel.on("fish_demo_connected", () => startLoop());
+  channel.on("fish_demo_disconnected", () => stopLoop());
 
   channel.on("orient", ({ alpha, beta, gamma }) => {
     orientation.alpha = alpha || 0;
