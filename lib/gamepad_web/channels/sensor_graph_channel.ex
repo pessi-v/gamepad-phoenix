@@ -1,5 +1,5 @@
 defmodule GamepadWeb.SensorGraphChannel do
-  use Phoenix.Channel
+  use Phoenix.Channel, log_handle_in: false
 
   alias GamepadWeb.SensorGraphState
 

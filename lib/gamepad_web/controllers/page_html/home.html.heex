@@ -1,4 +1,6 @@
 <canvas id="fish-canvas" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+<canvas id="paddle-canvas" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+<video id="webcam-video" style="display:none" autoplay playsinline muted></video>
 
 <div class="fixed top-4 left-4 sm:top-14 sm:left-14 z-50">
   <button onclick="document.getElementById('about-modal').showModal()" class="text-2xl text-base-content/50 hover:text-base-content transition-colors">About</button>
@@ -40,7 +42,9 @@
   data-gamepad-rtc-url={@gamepad_rtc_url}
   data-gamepad-rtc-session-id={@gamepad_rtc_session_id}
   data-nes-url={@nes_url}
-  data-nes-session-id={@nes_session_id}></div>
+  data-nes-session-id={@nes_session_id}
+  data-pingpong-url={@pingpong_url}
+  data-pingpong-session-id={@pingpong_session_id}></div>
 
 <div class="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
 
@@ -78,11 +82,8 @@
     </div>
   </div>
 
-  <div id="graph-area" class="hidden w-full max-w-5xl rounded-box overflow-hidden bg-base-200" style="height: 280px;">
-    <canvas id="graph-canvas" style="width:100%;height:100%;display:block;"></canvas>
-  </div>
 
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
+  <div id="qr-grid" style="transition: opacity 1s ease;" class="grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
     <div class="hidden flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Gamepad</p>
       <div id="qr-code" class="p-4 bg-white rounded-box shadow"></div>
@@ -103,6 +104,10 @@
     <div class="flex flex-col items-center gap-2">
       <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Fish</p>
       <div id="sensor-graph-qr" class="p-4 bg-white rounded-box shadow"></div>
+    </div>
+    <div class="flex flex-col items-center gap-2">
+      <p class="text-xs font-medium text-base-content/50 tracking-widest uppercase">Ping Pong</p>
+      <div id="pingpong-qr" class="p-4 bg-white rounded-box shadow"></div>
     </div>
   </div>
 

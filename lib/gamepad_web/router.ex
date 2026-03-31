@@ -21,6 +21,7 @@ defmodule GamepadWeb.Router do
     get "/pad/:session_id", PadController, :pad
     get "/sensor/:session_id", SensorController, :sensor
     get "/sensor-graph/:session_id", SensorGraphController, :sensor_graph
+    get "/pingpong/:session_id", PingpongController, :pingpong
   end
 
   if Application.compile_env(:gamepad, :dev_routes) do
